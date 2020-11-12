@@ -1,12 +1,62 @@
 from functools import total_ordering, reduce
-from collections import defaultdict
-from math import log
 import csv
 import re
 
 import pickle
 
 
+#normalize e tokenize da sistemare con nltp
+def normalize(text):
+    """ A simple funzion to normalize a text.
+    It removes everything that is not a word, a space or an hyphen
+    and downcases all the text.
+    """
+    no_punctuation = re.sub(r'[^\w^\s^-]', '', text)
+    downcase = no_punctuation.lower()
+    return downcase
+
+
+def tokenize(movie):
+    """ From a movie description returns a posting list of all
+    tokens present in the description.
+    """
+    text = normalize(movie.description)
+    return list(text.split())
+
+
+class ImpossibleMergeError(Exception):
+    pass
+
+@total_ordering
+class Term:
+#a un termine è associata una posting list
+
+    def __init__(self, term, docID, tf):
+        #quando ho un nuovo termine la posting list è formata solo dal primo docID
+        self.term = term
+        self.posting_list = PostingList.from_docID(docID, tf)
+
+    def merge(self, other):
+        """Merge (destructively) this term and the corresponding posting list
+        with another equal term and its corrsponding posting list.
+        """
+        if (self.term == other.term):
+            self.posting_list.merge(other.posting_list)
+        else:
+            raise ImpossibleMergeError()
+
+    def __eq__(self, other):
+        return self.term == other.term
+
+    def __gt__(self, other):
+        return self.term > other.term
+
+    def __repr__(self):
+        return self.term + ": " + repr(self.posting_list)
+
+
+
+#elementi di una posting list (doc id + tf del termine)
 @total_ordering
 class Posting:
 
@@ -36,7 +86,7 @@ class Posting:
     def __hash__(self):
         return hash(self._docID)
 
-
+#lista degli (docID,tf) di un term
 class PostingList:
 
     def __init__(self):
@@ -60,6 +110,7 @@ class PostingList:
         return plist
 
     def merge(self, other):
+        #per unire le posting list di un termine presente in più docID
         """Merge the other posting list to this one in a desctructive
         way, i.e., modifying the current posting list. This method assume
         that all the docIDs of the second list are higher than the ones
@@ -75,6 +126,7 @@ class PostingList:
         self._postings += other._postings[i:]
 
     def intersection(self, other):
+        #per la query
         """Returns a new posting list resulting from the intersection
         of this one and the one passed as argument.
         """
@@ -93,6 +145,7 @@ class PostingList:
         return PostingList.from_posting_list(intersection)
 
     def union(self, other):
+        #per la query
         """Returns a new posting list resulting from the union of this
         one and the one passed as argument.
         """
@@ -116,9 +169,15 @@ class PostingList:
             union.append(other._postings[k])
         return PostingList.from_posting_list(union)
 
-    def not_query(self):
-        notposting = [];
-        pass
+    #da sviluppare
+    def notquery(self, corpus):
+        notposting = []
+        for docID in corpus:
+            if(docID not in self._postings):
+                notposting.append(docID)
+        return PostingList.from_posting_list(notposting)
+
+
 
     def get_from_corpus(self, corpus):
         return list(map(lambda x: x.get_from_corpus(corpus), self._postings))
@@ -133,52 +192,14 @@ class PostingList:
         return ", ".join(map(str, self._postings))
 
 
-def normalize(text):
-    """ A simple funzion to normalize a text.
-    It removes everything that is not a word, a space or an hyphen
-    and downcases all the text.
-    """
-    no_punctuation = re.sub(r'[^\w^\s^-]', '', text)
-    downcase = no_punctuation.lower()
-    return downcase
-
-
-def tokenize(movie):
-    """ From a movie description returns a posting list of all
-    tokens present in the description.
-    """
-    text = normalize(movie.description)
-    return list(text.split())
-
-
-class ImpossibleMergeError(Exception):
-    pass
-
-
-@total_ordering
-class Term:
-
-    def __init__(self, term, docID, tf):
-        self.term = term
-        self.posting_list = PostingList.from_docID(docID, tf)
-
-    def merge(self, other):
-        """Merge (destructively) this term and the corresponding posting list
-        with another equal term and its corrsponding posting list.
-        """
-        if (self.term == other.term):
-            self.posting_list.merge(other.posting_list)
-        else:
-            raise ImpossibleMergeError()
-
-    def __eq__(self, other):
-        return self.term == other.term
-
-    def __gt__(self, other):
-        return self.term > other.term
+class DataDescription:
+    #generare la coppia titolo-testo
+    def __init__(self, title, description):
+        self.title = title
+        self.description = description
 
     def __repr__(self):
-        return self.term + ": " + repr(self.posting_list)
+        return self.title  # + "\n" + self.description + "\n"
 
 
 class InvertedIndex:
@@ -194,58 +215,47 @@ class InvertedIndex:
         for docID, document in enumerate(corpus):
             tokens = tokenize(document)
             for token in tokens:
+                #creo il nuovo termine
+
+                #devo ruotare la parola per fare la trailing wildcard
+
                 term = Term(token, docID, 1)
                 try:
+                    #se è già presente nel dizionario faccio il merge delle posting list
                     intermediate_dict[token].merge(term)
                 except KeyError:
+                    #altrimenti faccio un nuovo documento
                     intermediate_dict[token] = term
             # To observe the progress of our indexing.
             if (docID % 1000 == 0):
                 print(str(docID), end='...')
         idx = cls()
         idx._N = len(corpus)
+        #ritorno il dizionario con i termini ordinati in ordine alfabetico
         idx._dictionary = sorted(intermediate_dict.values())
         return idx
 
+    #per rispondere a una singola query
     def __getitem__(self, key):
-        for term in self._dictionary:
-            if term.term == key:
-                return term.posting_list
+        wildcards = []
+        if key.endswith("-"):
+            #vuol dire che è una wildcard
+            key = key[:-1]
+            for term in self._dictionary:
+                if term.term.startswith(key):
+                    wildcards.append(term.posting_list)
+            #devo trasformare il vettore di wildcards in una sola posting list
+            plist = reduce(lambda x, y: x.union(y), wildcards)
+            return plist
+        else:
+            #è una parola completa
+            for term in self._dictionary:
+                if(term.term == key):
+                    return term.posting_list
         raise KeyError
 
     def __repr__(self):
         return "A dictionary with " + str(len(self._dictionary)) + " terms"
-
-
-class MovieDescription:
-
-    def __init__(self, title, description):
-        self.title = title
-        self.description = description
-
-    def __repr__(self):
-        return self.title  # + "\n" + self.description + "\n"
-
-
-def read_movie_descriptions():
-    filename = '../../Google Drive/Università/Corsi/Materiale corsi quinto anno/Information retrieval and data visualization/Lecture 3/MovieSummaries/plot_summaries.txt'
-    movie_names_file = '../../Google Drive/Università/Corsi/Materiale corsi quinto anno/Information retrieval and data visualization/Lecture 3/MovieSummaries/movie.metadata.tsv'
-    with open(movie_names_file, 'r') as csv_file:
-        movie_names = csv.reader(csv_file, delimiter='\t')
-        names_table = {}
-        for name in movie_names:
-            names_table[name[0]] = name[2]
-    with open(filename, 'r') as csv_file:
-        descriptions = csv.reader(csv_file, delimiter='\t')
-        corpus = []
-        for desc in descriptions:
-            try:
-                movie = MovieDescription(names_table[desc[0]], desc[1])
-                corpus.append(movie)
-            except KeyError:
-                # We ignore the descriptions for which we cannot find a title
-                pass
-        return corpus
 
 
 class IRsystem:
@@ -263,14 +273,14 @@ class IRsystem:
     def answer_query_sc(self, words, connections):
         norm_words = map(normalize, words)
         postings = []
+
         for w in norm_words:
             try:
                 res = self._index[w]
             except KeyError:
-                dictionary = [t.term for t in self._index._dictionary]
-                sub = find_nearest(w, dictionary, keep_first=True)
-                print("{} not found. Did you mean {}?".format(w, sub))
-                res = self._index[sub]
+                #implementare il not found
+                print("{} not found. Did you mean {}?")
+                pass
             postings.append(res)
         #having all the postings now I have to compute and-or-not
         plist = []
@@ -284,45 +294,32 @@ class IRsystem:
                 elif(conn == "or"):
                     plist = reduce(lambda x, y: x.union(y), postings)
                 else:
-                    plist = reduce(lambda x, y: x.notquery(), postings)
+                    pass
+                    #print(enumerate(self._corpus))
+                    #return
         return plist.get_from_corpus(self._corpus)
 
-def edit_distance(u, v):
-    nrows = len(u) + 1
-    ncols = len(v) + 1
-    M = [[0] * ncols for i in range(0, nrows)]
-    for i in range(0, nrows):
-        M[i][0] = i
-    for j in range(0, ncols):
-        M[0][j] = j
-    for i in range(1, nrows):
-        for j in range(1, ncols):
-            candidates = [M[i-1][j] + 1, M[i][j-1] + 1]
-            if (u[i-1] == v[j-1]):
-                candidates.append(M[i-1][j-1])
-            else:
-                candidates.append(M[i-1][j-1] + 1)
-            M[i][j] = min(candidates)
-            # Remove the comments to print the distance matrix
-            # print(M[i][j], end="\t")
-        # print()
-    return M[-1][-1]  # Bottom right element of M
 
-
-def find_nearest(word, dictionary, keep_first=False):
-    if keep_first:
-        # If keep_first is true then we only search across the words
-        # in the dictionary starting with the same letter
-        dictionary = list(filter(lambda w: w[0] == word[0], dictionary))
-    # Remove comment to see the reduction in the size of the dictionary
-    # when keeping fixed the first letter
-    # print(len(dictionary))
-    # Apply f(x) = edit_distance(word, x) to all words in the dictionary
-    distances = map(lambda x: edit_distance(word, x), dictionary)
-    # Produce all the pairs (distance, term) usng zip and find one with
-    # the minimal distance.
-    return min(zip(distances, dictionary))[1]
-
+def read_data_descriptions():
+    filename = '../../Google Drive/Università/Corsi/Materiale corsi quinto anno/Information retrieval and data visualization/Lecture 3/MovieSummaries/plot_summaries.txt'
+    data_names_file = '../../Google Drive/Università/Corsi/Materiale corsi quinto anno/Information retrieval and data visualization/Lecture 3/MovieSummaries/movie.metadata.tsv'
+    with open(data_names_file, 'r') as csv_file:
+        data_names = csv.reader(csv_file, delimiter='\t')
+        names_table = {}
+        for name in data_names:
+            names_table[name[0]] = name[2]
+    with open(filename, 'r') as csv_file:
+        descriptions = csv.reader(csv_file, delimiter='\t')
+        corpus = []
+        for desc in descriptions:
+            try:
+                #coppia titolo-testo
+                corpelement = DataDescription(names_table[desc[0]], desc[1])
+                corpus.append(corpelement)
+            except KeyError:
+                # We ignore the descriptions for which we cannot find a title
+                pass
+        return corpus
 
 def query(ir, text):
     words = text.split()
@@ -337,19 +334,21 @@ def query(ir, text):
             terms.append(word)
 
     answer = ir.answer_query_sc(terms, connections)
+    print(len(answer))
     for movie in answer:
         print(movie)
 
 #lettura file, creazione e salvataggio indice
 def initialization():
-    corpus = read_movie_descriptions()
+    corpus = read_data_descriptions()
     ir = IRsystem.from_corpus(corpus)
-    with open("index.pickle", "wb") as file_:
+    with open("myindex.pickle", "wb") as file_:
         pickle.dump(ir, file_, -1)
 
 #caricamento indice e query
 def operate():
-    ir = pickle.load(open("index.pickle", "rb", -1))
+    ir = pickle.load(open("myindex.pickle", "rb", -1))
     query(ir, "cat")
 
+#initialization()
 operate()
