@@ -216,19 +216,23 @@ class InvertedIndex:
             tokens = tokenize(document)
             for token in tokens:
                 #creo il nuovo termine
-
+                token = token + "$"
                 #devo ruotare la parola per fare la trailing wildcard
+                for i in token:
+                    term = Term(token, docID, 1)
 
-                term = Term(token, docID, 1)
-                try:
+                    try:
                     #se è già presente nel dizionario faccio il merge delle posting list
-                    intermediate_dict[token].merge(term)
-                except KeyError:
+                        intermediate_dict[token].merge(term)
+                    except KeyError:
                     #altrimenti faccio un nuovo documento
-                    intermediate_dict[token] = term
+                        intermediate_dict[token] = term
+                    token = token[1:]+token[0]
+
             # To observe the progress of our indexing.
-            if (docID % 1000 == 0):
+            if (docID % 1000 == 0 and docID != 0):
                 print(str(docID), end='...')
+                break
         idx = cls()
         idx._N = len(corpus)
         #ritorno il dizionario con i termini ordinati in ordine alfabetico
@@ -238,8 +242,15 @@ class InvertedIndex:
     #per rispondere a una singola query
     def __getitem__(self, key):
         wildcards = []
-        if key.endswith("-"):
+        key = key + "$"
+
+        if "#" in key:
             #vuol dire che è una wildcard
+
+            #ruoto fino ad avere l'asterisco alla fine e poi tolgo l'asterisco e cerco
+            while(not key.endswith("#")):
+                key = key[1:] + key[0]
+
             key = key[:-1]
             for term in self._dictionary:
                 if term.term.startswith(key):
@@ -271,7 +282,9 @@ class IRsystem:
         return cls(corpus, index)
 
     def answer_query_sc(self, words, connections):
-        norm_words = map(normalize, words)
+        #da riabilitare
+        #norm_words = map(normalize, words)
+        norm_words = words
         postings = []
 
         for w in norm_words:
@@ -348,7 +361,7 @@ def initialization():
 #caricamento indice e query
 def operate():
     ir = pickle.load(open("myindex.pickle", "rb", -1))
-    query(ir, "cat")
+    query(ir, "cat#")
 
 #initialization()
 operate()
