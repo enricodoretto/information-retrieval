@@ -2,8 +2,12 @@ from functools import total_ordering, reduce
 import csv
 import re
 
-import pickle
+import nltk
+from nltk.corpus import stopwords
 
+import pickle
+nltk.download('punkt')
+nltk.download('stopwords')
 
 #normalize e tokenize da sistemare con nltp
 def normalize(text):
@@ -20,8 +24,13 @@ def tokenize(movie):
     """ From a movie description returns a posting list of all
     tokens present in the description.
     """
+    stop_words = set(stopwords.words('english'))
     text = normalize(movie.description)
-    return list(text.split())
+    tokenized = nltk.word_tokenize(text)
+    filtered_sentence = [w for w in tokenized if not w in stop_words]
+
+    #return list(text.split())
+    return filtered_sentence
 
 
 class ImpossibleMergeError(Exception):
@@ -169,14 +178,7 @@ class PostingList:
             union.append(other._postings[k])
         return PostingList.from_posting_list(union)
 
-    #da sviluppare
-    def notquery(self, corpus):
-        notposting = []
-        for docID in corpus:
-            if(docID not in self._postings):
-                notposting.append(docID)
-        return PostingList.from_posting_list(notposting)
-
+    '''da sviluppare la NOT QUERY'''
 
 
     def get_from_corpus(self, corpus):
@@ -240,6 +242,8 @@ class InvertedIndex:
         return idx
 
     #per rispondere a una singola query
+
+    '''aggiungere modo per rispondere a più query'''
     def __getitem__(self, key):
         wildcards = []
         key = key + "$"
@@ -308,8 +312,7 @@ class IRsystem:
                     plist = reduce(lambda x, y: x.union(y), postings)
                 else:
                     pass
-                    #print(enumerate(self._corpus))
-                    #return
+                    '''sviluppare la not'''
         return plist.get_from_corpus(self._corpus)
 
 
@@ -361,7 +364,7 @@ def initialization():
 #caricamento indice e query
 def operate():
     ir = pickle.load(open("myindex.pickle", "rb", -1))
-    query(ir, "cat#")
+    query(ir, "the")
 
 #initialization()
 operate()
