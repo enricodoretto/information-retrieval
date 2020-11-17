@@ -1,7 +1,6 @@
 from functools import total_ordering, reduce
 import csv
 import re
-
 import nltk
 from nltk.corpus import stopwords
 
@@ -31,7 +30,6 @@ def tokenize(movie):
 
     #return list(text.split())
     return filtered_sentence
-
 
 class ImpossibleMergeError(Exception):
     pass
@@ -64,14 +62,14 @@ class Term:
         return self.term + ": " + repr(self.posting_list)
 
 
-
-#elementi di una posting list (doc id + tf del termine)
+#elementi di una posting list (doc id + posizioni del termine)
 @total_ordering
 class Posting:
 
-    def __init__(self, docID, tf):
+    def __init__(self, docID, pos):
         self._docID = docID
-        self._tf = tf  # Term frequency
+        self._poslist = []  # Term frequency
+        self._poslist.append(pos)
 
     def get_from_corpus(self, corpus):
         return corpus[self._docID]
@@ -90,24 +88,25 @@ class Posting:
         return self._docID > other._docID
 
     def __repr__(self):
-        return str(self._docID) + " [" + str(self._tf) + "]"
+        return str(self._docID) + " [" + str(self._poslist) + "]"
 
     def __hash__(self):
         return hash(self._docID)
 
-#lista degli (docID,tf) di un term
+
+#lista degli (docID,lista delle posizioni) di un term
 class PostingList:
 
     def __init__(self):
         self._postings = []
 
     @classmethod
-    def from_docID(cls, docID, tf):
+    def from_docID(cls, docID, position):
         """ A posting list can be constructed starting from
         a single docID.
         """
         plist = cls()
-        plist._postings = [Posting(docID, tf)]
+        plist._postings = [Posting(docID, position)]
         return plist
 
     @classmethod
@@ -130,7 +129,7 @@ class PostingList:
         i = 0
         last = self._postings[-1]
         while (i < len(other._postings) and last == other._postings[i]):
-            last._tf += other._postings[i]._tf
+            last._poslist.append(other._postings[i]._poslist[0])
             i += 1
         self._postings += other._postings[i:]
 
@@ -194,6 +193,7 @@ class PostingList:
         return ", ".join(map(str, self._postings))
 
 
+
 class DataDescription:
     #generare la coppia titolo-testo
     def __init__(self, title, description):
@@ -216,13 +216,13 @@ class InvertedIndex:
         intermediate_dict = {}
         for docID, document in enumerate(corpus):
             tokens = tokenize(document)
-            for token in tokens:
+            for index, token in enumerate(tokens):
                 #creo il nuovo termine
                 token = token + "$"
 
                 #devo ruotare la parola per fare la trailing wildcard
                 for i in token:
-                    term = Term(token, docID, 1)
+                    term = Term(token, docID, index)
 
                     try:
                     #se è già presente nel dizionario faccio il merge delle posting list
@@ -404,5 +404,5 @@ def operate():
     print("Index retrieved!")
     query(ir, "ca#t")
 
-#initialization()
-operate()
+initialization()
+#operate()
