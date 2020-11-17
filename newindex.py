@@ -191,7 +191,7 @@ class PostingList:
                 #sono nello stesso documento, devo controllare se sono vicini
                 while (x < len(self._postings[i]._poslist) and y < len(other._postings[j]._poslist)):
                     if(self._postings[i]._poslist[x] == other._postings[j]._poslist[y]-1):
-                        phrase.append(self._postings[i])
+                        phrase.append(other._postings[y])
                     x += 1
                     y += 1
                 i += 1
@@ -427,9 +427,10 @@ def query(ir, text):
             terms.append(word)
 
     answer = ir.answer_phrase_query(terms)
+    #answer = ir.answer_query_sc(terms,connections)
     print(len(answer))
-    for movie in answer:
-        print(movie)
+    for doc in answer:
+        print(doc)
 
 #lettura file, creazione e salvataggio indice
 def initialization():
@@ -443,6 +444,6 @@ def operate():
     print("Retrieving index...")
     ir = pickle.load(open("myindex.pickle", "rb", -1))
     print("Index retrieved!")
-    query(ir, "taxi driver")
+    query(ir, "hard-working taxi driver")
 #initialization()
 operate()
