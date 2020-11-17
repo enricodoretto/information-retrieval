@@ -180,6 +180,30 @@ class PostingList:
     '''da sviluppare la NOT QUERY'''
 
 
+    def phrase(self,other):
+        phrase = []
+        i=0
+        j=0
+        while (i < len(self._postings) and j < len(other._postings)):
+            x=0
+            y=0
+            if (self._postings[i] == other._postings[j]):
+                #sono nello stesso documento, devo controllare se sono vicini
+                while (x < len(self._postings[i]._poslist) and y < len(other._postings[j]._poslist)):
+                    if(self._postings[i]._poslist[x] == other._postings[j]._poslist[y]-1):
+                        phrase.append(self._postings[i])
+                    x += 1
+                    y += 1
+                i += 1
+                j += 1
+
+            elif (self._postings[i] < other._postings[j]):
+                i += 1
+            else:
+                j += 1
+        return PostingList.from_posting_list(phrase)
+
+
     def get_from_corpus(self, corpus):
         return list(map(lambda x: x.get_from_corpus(corpus), self._postings))
 
@@ -351,6 +375,23 @@ class IRsystem:
                     '''sviluppare la not'''
         return plist.get_from_corpus(self._corpus)
 
+    def answer_phrase_query(self, words):
+        #da riabilitare
+        #norm_words = map(normalize, words)
+        norm_words = words
+        postings = []
+        for w in norm_words:
+            try:
+                res = self._index[w]
+            except KeyError:
+                #implementare il not found
+                print("{} not found. Did you mean {}?")
+                pass
+            postings.append(res)
+        #having all the postings now I have to check if they are near
+        plist = reduce(lambda x, y: x.phrase(y), postings)
+        return plist.get_from_corpus(self._corpus)
+
 
 def read_data_descriptions():
     filename = '../../Google Drive/Università/Corsi/Materiale corsi quinto anno/Information retrieval and data visualization/Lecture 3/MovieSummaries/plot_summaries.txt'
@@ -385,7 +426,7 @@ def query(ir, text):
         else:
             terms.append(word)
 
-    answer = ir.answer_query_sc(terms, connections)
+    answer = ir.answer_phrase_query(terms)
     print(len(answer))
     for movie in answer:
         print(movie)
@@ -402,7 +443,6 @@ def operate():
     print("Retrieving index...")
     ir = pickle.load(open("myindex.pickle", "rb", -1))
     print("Index retrieved!")
-    query(ir, "ca#t")
-
-initialization()
-#operate()
+    query(ir, "taxi driver")
+#initialization()
+operate()
