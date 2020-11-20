@@ -307,19 +307,19 @@ class InvertedIndex:
             for term in self._dictionary:
                 if term.term.startswith(key1):
                     simp_query.append(term)
-            #devo trasformare il vettore di termini in uno solo
-            #simp_query_list = reduce(lambda x, y: x.union(y), simp_query)
 
-            '''DA SISTEMARE'''
+            #tolgo il dollaro alla prima wildcard e sostituisco gli # del resto della parola con i simboli per regex
+            key1 = key1[:-1]
+            key2 = wcards[0].replace("#", ".+")
+
+            #metto insieme le singole wildcard (prima metto quella già restituita così vado in ordine) e compilo la regex
+            match = key1 + "\$" + key2 + ".+"
+            reg = re.compile(match)
+
             terms_retrieve = []
-            reg = re.compile(".+a.t")
-
             for term in simp_query:
-                while (not term.term.endswith("$")):
-                    term.term = term.term[1:] + term.term[0]
                 if re.match(reg, term.term):
                    terms_retrieve.append(term.posting_list)
-                   #terms_retrieve.append(term.posting_list)
 
             #ora ho tutti i termini che rispecchiano la wildcard "alla fine"
             plist = reduce(lambda x, y: x.union(y), terms_retrieve)
