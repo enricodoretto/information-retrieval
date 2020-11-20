@@ -315,13 +315,16 @@ class InvertedIndex:
             reg = re.compile(".+a.t")
 
             for term in simp_query:
+                while (not term.term.endswith("$")):
+                    term.term = term.term[1:] + term.term[0]
                 if re.match(reg, term.term):
-                   terms_retrieve.append(term.term)
+                   terms_retrieve.append(term.posting_list)
                    #terms_retrieve.append(term.posting_list)
 
             #ora ho tutti i termini che rispecchiano la wildcard "alla fine"
+            plist = reduce(lambda x, y: x.union(y), terms_retrieve)
+            return plist
 
-            pass
         else:
             #è una parola completa
             for term in self._dictionary:
@@ -426,8 +429,8 @@ def query(ir, text):
         else:
             terms.append(word)
 
-    answer = ir.answer_phrase_query(terms)
-    #answer = ir.answer_query_sc(terms,connections)
+    #answer = ir.answer_phrase_query(terms)
+    answer = ir.answer_query_sc(terms,connections)
     print(len(answer))
     for doc in answer:
         print(doc)
@@ -444,6 +447,6 @@ def operate():
     print("Retrieving index...")
     ir = pickle.load(open("myindex.pickle", "rb", -1))
     print("Index retrieved!")
-    query(ir, "hard-working taxi driver")
+    query(ir, "#a#t")
 #initialization()
 operate()
