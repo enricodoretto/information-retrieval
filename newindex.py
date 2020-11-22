@@ -178,7 +178,27 @@ class PostingList:
         return PostingList.from_posting_list(union)
 
     '''da sviluppare la NOT QUERY'''
+    def not_query(self, other):
+        '''per fare la not devo prendere la posting list del termine
+        se è chiamata singola allora devo prendere una posting list con tutti i termini
+        altrimenti basta togliere quelli che ci sono nell'altra'''
 
+        #self = quella della not
+        #other = altra posting list o posting list di tutti i documenti
+        not_term = []
+        i = 0
+        j = 0
+        while (i < len(self._postings) and j < len(other._postings)):
+            if (self._postings[i] == other._postings[j]):
+                #se sono uguali non lo aggiungo
+                i += 1
+                j += 1
+            elif (self._postings[i] < other._postings[j]):
+                not_term.append(self._postings[i])
+                i += 1
+            else:
+                j += 1
+        return PostingList.from_posting_list(not_term)
 
     def phrase(self,other):
         phrase = []
@@ -191,7 +211,7 @@ class PostingList:
                 #sono nello stesso documento, devo controllare se sono vicini
                 while (x < len(self._postings[i]._poslist) and y < len(other._postings[j]._poslist)):
                     if(self._postings[i]._poslist[x] == other._postings[j]._poslist[y]-1):
-                        phrase.append(other._postings[y])
+                        phrase.append(other._postings[j])
                     x += 1
                     y += 1
                 i += 1
@@ -297,6 +317,8 @@ class InvertedIndex:
             #salvo la prima parte, tengo solo la ultima e faccio la query su questa
             wcards = key.rsplit('#', 1)
 
+            '''manca il caso in cui la parte sconosciuta sia alla fine'''
+
             key1 = '#'+wcards[1]
 
             #ruoto fino ad avere l'asterisco alla fine e poi tolgo l'asterisco e cerco
@@ -376,6 +398,7 @@ class IRsystem:
                 else:
                     pass
                     '''sviluppare la not'''
+                    plist = reduce(lambda x, y: x.not_query(y), postings)
         return plist.get_from_corpus(self._corpus)
 
     def answer_phrase_query(self, words):
@@ -447,6 +470,6 @@ def operate():
     print("Retrieving index...")
     ir = pickle.load(open("myindex.pickle", "rb", -1))
     print("Index retrieved!")
-    query(ir, "#a#t")
+    query(ir, "caesar not flickerman")
 #initialization()
 operate()

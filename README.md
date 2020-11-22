@@ -2,6 +2,7 @@
 
 TODO:
 - tries
+- not query su tutto il dizionario
 - new dataset
-- not query
+
 - combinare tutte le query per averne una unica
