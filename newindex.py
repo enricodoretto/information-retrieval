@@ -470,6 +470,6 @@ def operate():
     print("Retrieving index...")
     ir = pickle.load(open("myindex.pickle", "rb", -1))
     print("Index retrieved!")
-    query(ir, "caesar not flickerman")
+    query(ir, "cat")
 #initialization()
 operate()
