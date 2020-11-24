@@ -3,6 +3,8 @@ import csv
 import re
 import nltk
 from nltk.corpus import stopwords
+import time
+
 
 import pickle
 nltk.download('punkt')
@@ -371,7 +373,7 @@ class IRsystem:
         return cls(corpus, index)
 
     def answer_query_sc(self, words, connections):
-        #da riabilitare
+        '''da riabilitare'''
         #norm_words = map(normalize, words)
         norm_words = words
         postings = []
@@ -460,16 +462,25 @@ def query(ir, text):
 
 #lettura file, creazione e salvataggio indice
 def initialization():
+    tic = time.perf_counter()
     corpus = read_data_descriptions()
     ir = IRsystem.from_corpus(corpus)
     with open("myindex.pickle", "wb") as file_:
         pickle.dump(ir, file_, -1)
+    toc = time.perf_counter()
+    print(f"Index created in {toc - tic:0.4f} seconds")
 
-#caricamento indice e query
 def operate():
     print("Retrieving index...")
     ir = pickle.load(open("myindex.pickle", "rb", -1))
     print("Index retrieved!")
-    query(ir, "cat")
-#initialization()
-operate()
+    tic = time.perf_counter()
+    query(ir, "cat or space")
+    toc = time.perf_counter()
+    print(f"Query performed in {toc - tic:0.4f} seconds")
+
+
+if __name__ == "__main__":
+    #initialization()
+    operate()
+

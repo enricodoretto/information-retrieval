@@ -1,9 +1,12 @@
+import pickle
 from functools import total_ordering, reduce
 import csv
 from typing import Tuple
 import re
 import nltk
 from nltk.corpus import stopwords
+import time
+
 
 nltk.download('punkt')
 nltk.download('stopwords')
@@ -118,7 +121,76 @@ class PostingList:
                 j += 1
         return PostingList.from_posting_list(intersection)
 
-    '''mancano unione, phrase e not'''
+    def union(self, other):
+        #per la query
+        """Returns a new posting list resulting from the union of this
+        one and the one passed as argument.
+        """
+        union = []
+        i = 0
+        j = 0
+        while (i < len(self._postings) and j < len(other._postings)):
+            if (self._postings[i] == other._postings[j]):
+                union.append(self._postings[i])
+                i += 1
+                j += 1
+            elif (self._postings[i] < other._postings[j]):
+                union.append(self._postings[i])
+                i += 1
+            else:
+                union.append(other._postings[j])
+                j += 1
+        for k in range(i, len(self._postings)):
+            union.append(self._postings[k])
+        for k in range(j, len(other._postings)):
+            union.append(other._postings[k])
+        return PostingList.from_posting_list(union)
+
+    '''da sviluppare la NOT QUERY PER TUTTO IL DIZIONARIO'''
+    def not_query(self, other):
+        '''per fare la not devo prendere la posting list del termine
+        se è chiamata singola allora devo prendere una posting list con tutti i termini
+        altrimenti basta togliere quelli che ci sono nell'altra'''
+
+        #self = quella della not
+        #other = altra posting list o posting list di tutti i documenti
+        not_term = []
+        i = 0
+        j = 0
+        while (i < len(self._postings) and j < len(other._postings)):
+            if (self._postings[i] == other._postings[j]):
+                #se sono uguali non lo aggiungo
+                i += 1
+                j += 1
+            elif (self._postings[i] < other._postings[j]):
+                not_term.append(self._postings[i])
+                i += 1
+            else:
+                j += 1
+        return PostingList.from_posting_list(not_term)
+
+    def phrase(self,other):
+        phrase = []
+        i=0
+        j=0
+        while (i < len(self._postings) and j < len(other._postings)):
+            x=0
+            y=0
+            if (self._postings[i] == other._postings[j]):
+                #sono nello stesso documento, devo controllare se sono vicini
+                while (x < len(self._postings[i]._poslist) and y < len(other._postings[j]._poslist)):
+                    if(self._postings[i]._poslist[x] == other._postings[j]._poslist[y]-1):
+                        phrase.append(other._postings[j])
+                    x += 1
+                    y += 1
+                i += 1
+                j += 1
+
+            elif (self._postings[i] < other._postings[j]):
+                i += 1
+            else:
+                j += 1
+        return PostingList.from_posting_list(phrase)
 
     def get_from_corpus(self, corpus):
         return list(map(lambda x: x.get_from_corpus(corpus), self._postings))
@@ -289,27 +361,96 @@ class IRsystem:
         #print(index)
         return cls(corpus, index)
 
-    '''qui va aggiunta la risposta delle query'''
-    def answer_query(self, word):
-        res = find_prefix(self._index._root, word)
+    def answer_query(self, words, connections):
+        '''da riabilitare'''
+        #norm_words = map(normalize, words)
+
+        norm_words = words
+        postings = []
+
+        for w in norm_words:
+            try:
+                res = find_prefix(self._index._root, w)
+            except KeyError:
+                #implementare il not found
+                print("{} not found. Did you mean {}?")
+                pass
+            postings.append(res)
+        #having all the postings now I have to compute and-or-not
+        plist = []
+        if(not connections):
+            #se non viene specificata una connection word viene ritornata l'and
+            plist = reduce(lambda x, y: x.intersection(y), postings)
+        else:
+            for conn in connections:
+                if(conn == "and"):
+                    plist = reduce(lambda x, y: x.intersection(y), postings)
+                elif(conn == "or"):
+                    plist = reduce(lambda x, y: x.union(y), postings)
+                else:
+                    pass
+                    '''sviluppare la not'''
+                    plist = reduce(lambda x, y: x.not_query(y), postings)
+        return plist.get_from_corpus(self._corpus)
         #plist = reduce(lambda x, y: x.phrase(y), postings)
         return res.get_from_corpus(self._corpus)
 
+    def answer_phrase_query(self, words):
+        #da riabilitare
+        #norm_words = map(normalize, words)
+        norm_words = words
+        postings = []
+        for w in norm_words:
+            try:
+                res = find_prefix(self._index._root, w)
+            except KeyError:
+                #implementare il not found
+                print("{} not found. Did you mean {}?")
+                pass
+            postings.append(res)
+        #having all the postings now I have to check if they are near
+        plist = reduce(lambda x, y: x.phrase(y), postings)
+        return plist.get_from_corpus(self._corpus)
 
-if __name__ == "__main__":
-    '''root1 = TrieNode('*')
-    add(root1, "hackathon")
-    add(root1, 'hack')
+def query(ir, text):
+    words = text.split()
+    connections = []
+    terms = []
 
-    print(find_prefix(root1, 'hac'))
-    print(find_prefix(root1, 'hack'))
-    print(find_prefix(root1, 'hackathon'))
-    print(find_prefix(root1, 'ha'))
-    print(find_prefix(root1, 'hammer'))'''
+    #Divide terms to retrieve and connections such and, or, not
+    for word in words:
+        if (word == "and" or word == "or" or word == "not"):
+            connections.append(word)
+        else:
+            terms.append(word + "$")
 
-    root1 = TrieNode('*')
-    corpus = read_data_descriptions()
-    ir = IRsystem.from_corpus(corpus)
-    answer = ir.answer_query("cat$")
+    #answer = ir.answer_phrase_query(terms)
+    answer = ir.answer_query(terms,connections)
+    print(len(answer))
     for doc in answer:
         print(doc)
+
+#lettura file, creazione e salvataggio indice
+def initialization():
+    tic = time.perf_counter()
+    corpus = read_data_descriptions()
+    ir = IRsystem.from_corpus(corpus)
+    with open("trie.pickle", "wb") as file_:
+        pickle.dump(ir, file_, -1)
+    toc = time.perf_counter()
+    print(f"Index created in {toc - tic:0.4f} seconds")
+
+def operate():
+    print("Retrieving index...")
+    ir = pickle.load(open("trie.pickle", "rb", -1))
+    print("Index retrieved!")
+    tic = time.perf_counter()
+    query(ir, "cat or space")
+    toc = time.perf_counter()
+    print(f"Query performed in {toc - tic:0.4f} seconds")
+
+
+if __name__ == "__main__":
+    #initialization()
+    operate()
+
