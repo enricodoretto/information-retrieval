@@ -57,7 +57,7 @@ def find_prefix(root, prefix: str):
     # If the root node has no children, then return False.
     # Because it means we are trying to search in an empty trie
     if not root.children:
-        return False, 0
+        return False
     for char in prefix:
         char_not_found = True
         # Search through all the children of the present `node`
@@ -70,7 +70,7 @@ def find_prefix(root, prefix: str):
                 break
         # Return False anyway when we did not find a char.
         if char_not_found:
-            return False, 0
+            return False
     # Well, we are here means we have found the prefix. Return true to indicate that
     # And also the counter of the last node. This indicates how many words have this
     # prefix

@@ -80,7 +80,6 @@ class IRsystem:
     @classmethod
     def from_corpus(cls, corpus):
         index = InvertedIndex.from_corpus(corpus)
-        #print(index)
         return cls(corpus, index)
 
     def answer_query(self, words, connections):
@@ -91,18 +90,22 @@ class IRsystem:
         postings = []
 
         for w in norm_words:
-            try:
-                res = find_prefix(self._index._root, w)
-            except KeyError:
-                #implementare il not found
-                print("{} not found. Did you mean {}?")
-                pass
+            res = find_prefix(self._index._root, w)
+            #if word not found
+            if(not res):
+                break
             postings.append(res)
+
         #having all the postings now I have to compute and-or-not
         plist = []
-        if(not connections):
-            #se non viene specificata una connection word viene ritornata l'and
+        if(not connections and len(norm_words) > 1):
+            #se non ho connessioni e ho più di due parole è una frase
+            plist = reduce(lambda x, y: x.phrase(y), postings)
+
+        elif (len(norm_words) == 1):
+            #sono nel caso di una sola parola
             plist = reduce(lambda x, y: x.intersection(y), postings)
+
         else:
             for conn in connections:
                 if(conn == "and"):
@@ -113,26 +116,9 @@ class IRsystem:
                     pass
                     '''sviluppare la not'''
                     plist = reduce(lambda x, y: x.not_query(y), postings)
-        return plist.get_from_corpus(self._corpus)
-        #plist = reduce(lambda x, y: x.phrase(y), postings)
-        return res.get_from_corpus(self._corpus)
 
-    def answer_phrase_query(self, words):
-        #da riabilitare
-        #norm_words = map(normalize, words)
-        norm_words = words
-        postings = []
-        for w in norm_words:
-            try:
-                res = find_prefix(self._index._root, w)
-            except KeyError:
-                #implementare il not found
-                print("{} not found. Did you mean {}?")
-                pass
-            postings.append(res)
-        #having all the postings now I have to check if they are near
-        plist = reduce(lambda x, y: x.phrase(y), postings)
         return plist.get_from_corpus(self._corpus)
+
 
 def query(ir, text):
     words = text.split()
@@ -146,7 +132,6 @@ def query(ir, text):
         else:
             terms.append(word + "$")
 
-    #answer = ir.answer_phrase_query(terms)
     answer = ir.answer_query(terms,connections)
     print(len(answer))
     for doc in answer:
@@ -167,12 +152,12 @@ def operate():
     ir = pickle.load(open("data/trie.pickle", "rb", -1))
     print("Index retrieved!")
     tic = time.perf_counter()
-    query(ir, "cat or space")
+    query(ir, "poovalli induchoodan")
     toc = time.perf_counter()
     print(f"Query performed in {toc - tic:0.4f} seconds")
 
 
 if __name__ == "__main__":
-    initialization()
-    #operate()
+    #initialization()
+    operate()
 
