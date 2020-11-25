@@ -8,6 +8,7 @@ from term_operations import tokenize
 from trie import TrieNode
 from trie import add
 from trie import find_item
+from trie2 import Trie
 
 nltk.download('punkt')
 nltk.download('stopwords')
@@ -37,12 +38,12 @@ def read_data_descriptions():
 
 class InvertedIndex:
     def __init__(self):
-        self._root = TrieNode  # A trie of terms
+        self._trie = Trie  # A trie of terms
         self._N = 0  # Number of documents in the collection
 
     @classmethod
     def from_corpus(cls, corpus):
-        root1 = TrieNode('*')
+        trie = Trie()
 
         # Here we "cheat" by using python dictionaries
         for docID, document in enumerate(corpus):
@@ -54,7 +55,7 @@ class InvertedIndex:
                 # devo ruotare la parola per fare la trailing wildcard
                 for i in token:
                     # se è già presente nel dizionario faccio il merge delle posting list
-                    add(root1, token, docID, index)
+                    trie.insert(token, docID, index)
 
                     token = token[1:] + token[0]
 
@@ -65,7 +66,7 @@ class InvertedIndex:
                 break
 
         idx = cls()
-        idx._root = root1
+        idx._trie = trie
         idx._N = len(corpus)
         return idx
 
@@ -88,10 +89,22 @@ class IRsystem:
         postings = []
 
         for w in norm_words:
-            res = find_item(self._index._root, w)
-            #if word not found
-            if(not res):
-                break
+
+            counter = w.count('#')
+            if not counter == 0:
+                #vuol dire che è una wildcard
+                '''implementare multiple e errore se non trovata'''
+                while (not w.endswith("#")):
+                    w = w[1:] + w[0]
+                w = w[:-1]
+                wcards = self._index._trie.getWildcard(w)
+                res = reduce(lambda x, y: x.union(y), wcards)
+
+            else:
+                res = self._index._trie.search(w)
+                #if word not found
+                if(not res):
+                    break
             postings.append(res)
 
         #having all the postings now I have to compute and-or-not
@@ -140,17 +153,17 @@ def initialization():
     tic = time.perf_counter()
     corpus = read_data_descriptions()
     ir = IRsystem.from_corpus(corpus)
-    with open("data/trie.pickle", "wb") as file_:
+    with open("data/trie2.pickle", "wb") as file_:
         pickle.dump(ir, file_, -1)
     toc = time.perf_counter()
     print(f"Index created in {toc - tic:0.4f} seconds")
 
 def operate():
     print("Retrieving index...")
-    ir = pickle.load(open("data/trie.pickle", "rb", -1))
+    ir = pickle.load(open("data/trie2.pickle", "rb", -1))
     print("Index retrieved!")
     tic = time.perf_counter()
-    query(ir, "poovalli induchoodan")
+    query(ir, "car#")
     toc = time.perf_counter()
     print(f"Query performed in {toc - tic:0.4f} seconds")
 

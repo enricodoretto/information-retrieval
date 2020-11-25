@@ -15,7 +15,6 @@ class TrieNode(object):
         # How many times this character appeared in the addition process
         self.counter = 1
 
-
 def add(root, word: str, docID, position):
     """
     Adding a word in the trie structure
@@ -47,7 +46,7 @@ def add(root, word: str, docID, position):
         node.posting_list = PostingList.from_docID(docID, position)
 
 
-def find_prefix(root, prefix: str):
+def find_item(root, prefix: str):
     """
     Check and return
       1. If the prefix exsists in any of the words we added so far
@@ -77,3 +76,7 @@ def find_prefix(root, prefix: str):
     if node.word_finished:
         return node.posting_list
     return
+
+
+
+
