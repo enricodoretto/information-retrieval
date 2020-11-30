@@ -475,7 +475,7 @@ def operate():
     ir = pickle.load(open("data/dictionary.pickle", "rb", -1))
     print("Index retrieved!")
     tic = time.perf_counter()
-    query(ir, "car#")
+    query(ir, "c#t#")
     toc = time.perf_counter()
     print(f"Query performed in {toc - tic:0.4f} seconds")
 

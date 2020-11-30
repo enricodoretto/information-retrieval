@@ -94,11 +94,32 @@ class IRsystem:
             if not counter == 0:
                 #vuol dire che è una wildcard
                 '''implementare multiple e errore se non trovata'''
-                while (not w.endswith("#")):
-                    w = w[1:] + w[0]
-                w = w[:-1]
-                wcards = self._index._trie.getWildcard(w)
-                res = reduce(lambda x, y: x.union(y), wcards)
+
+                if(counter == 1):
+                    while (not w.endswith("#")):
+                        w = w[1:] + w[0]
+                    w = w[:-1]
+                    wcards = self._index._trie.getWildcard(w)
+                    res = reduce(lambda x, y: x.union(y), wcards)
+
+                elif(counter > 1):
+                    '''multiple wildcard'''
+                    #salvo la prima parte, tengo solo la ultima e faccio la query su questa
+                    cards = w.rsplit('#', 1)
+                    key1 = '#' + cards[1]
+                    while(not key1.endswith("#")):
+                        key1 = key1[1:] + key1[0]
+
+                    key = key1[:-1]
+
+                    # tolgo il dollaro alla prima wildcard e sostituisco gli # del resto della parola con i simboli per regex
+                    key1 = key1[:-1]
+                    key1 = key1[:-1]
+
+                    key2 = cards[0].replace("#", ".+")
+                    pattern = key1 + "\$" + key2 + ".+"
+                    wcards = self._index._trie.getWildcardMW(key, pattern)
+                    res = reduce(lambda x, y: x.union(y), wcards)
 
             else:
                 res = self._index._trie.search(w)
@@ -163,7 +184,7 @@ def operate():
     ir = pickle.load(open("data/trie2.pickle", "rb", -1))
     print("Index retrieved!")
     tic = time.perf_counter()
-    query(ir, "car#")
+    query(ir, "c#t#")
     toc = time.perf_counter()
     print(f"Query performed in {toc - tic:0.4f} seconds")
 

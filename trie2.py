@@ -1,3 +1,5 @@
+import re
+
 from term_operations import PostingList
 
 # Python3 program to demonstrate auto-complete
@@ -92,5 +94,44 @@ class Trie():
             return -1
 
         self.suggestionsRec(node, temp_word)
+
+        return self.word_list
+
+
+    def suggestionsRecMW(self, node, word, init):
+
+        # Method to recursively traverse the trie
+        # and return a whole word.
+        reg = re.compile(init)
+
+        if node.last and re.match(reg, word):
+            self.word_list.append(node.posting_list)
+
+        for a, n in node.children.items():
+            self.suggestionsRecMW(n, word + a, init)
+
+    def getWildcardMW(self, key, init):
+
+        # Returns all the words in the trie whose common
+        # prefix is the given key thus listing out all
+        # the suggestions for autocomplete.
+        node = self.root
+        not_found = False
+        temp_word = ''
+
+        for a in list(key):
+            if not node.children.get(a):
+                not_found = True
+                break
+
+            temp_word += a
+            node = node.children[a]
+
+        if not_found:
+            return 0
+        elif node.last and not node.children:
+            return -1
+
+        self.suggestionsRecMW(node, temp_word, init)
 
         return self.word_list
