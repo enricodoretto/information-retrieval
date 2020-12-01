@@ -3,11 +3,10 @@ from functools import total_ordering, reduce
 import csv
 import nltk
 import time
-from term_operations_dct import Term
-from term_operations_dct import DataDescription
-from term_operations_dct import tokenize
+from term_operations import DataDescription
+from term_operations import tokenize
 
-from trie_dct import Trie
+from trie import Trie
 
 nltk.download('punkt')
 nltk.download('stopwords')
@@ -52,15 +51,13 @@ class InvertedIndex:
         for docID, document in enumerate(corpus):
             tokens = tokenize(document)
             for index, token in enumerate(tokens):
-                term = Term(token, docID, index)
-
                 # creo il nuovo termine
                 token = token + "$"
 
                 # devo ruotare la parola per fare la trailing wildcard
                 for i in token:
                     # se è già presente nel dizionario faccio il merge delle posting list
-                    trie.insert(token, term)
+                    trie.insert(token, docID, index)
 
                     token = token[1:] + token[0]
 
@@ -69,8 +66,8 @@ class InvertedIndex:
                 print(str(docID), end='...')
                 #break
                 # enable break to limit indexing for testing
-                #if(docID % 20000 == 0):
-                #    break
+                if(docID % 20000 == 0):
+                    break
 
         idx = cls()
         idx._trie = trie
@@ -206,7 +203,7 @@ def operate():
     tac = time.perf_counter()
     print(f"Index retrieved in {tac - tic:0.4f} seconds")
 
-    query(ir, "new york")
+    query(ir, "cat or space")
     toc = time.perf_counter()
     print(f"Query performed in {toc - tac:0.4f} seconds")
     gc.enable()
@@ -217,6 +214,6 @@ if __name__ == "__main__":
 #    ir = IRsystem.from_corpus(corpus)
 #    query(ir, "c#t#")
 
-#    initialization()
-    operate()
+    initialization()
+#    operate()
 

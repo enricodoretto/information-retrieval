@@ -3,37 +3,6 @@ from functools import total_ordering, reduce
 import nltk
 from nltk.corpus import stopwords
 
-class ImpossibleMergeError(Exception):
-    pass
-
-@total_ordering
-class Term:
-#a un termine è associata una posting list
-
-    def __init__(self, term, docID, position):
-        #quando ho un nuovo termine la posting list è formata solo dal primo docID
-        self.term = term
-        self.posting_list = PostingList.from_docID(docID, position)
-
-    def merge(self, other):
-        """Merge (destructively) this term and the corresponding posting list
-        with another equal term and its corrsponding posting list.
-        """
-        if (self.term == other.term):
-            self.posting_list.merge(other.posting_list)
-        else:
-            raise ImpossibleMergeError()
-
-    def __eq__(self, other):
-        return self.term == other.term
-
-    def __gt__(self, other):
-        return self.term > other.term
-
-    def __repr__(self):
-        return self.term + ": " + repr(self.posting_list)
-
-
 #normalize e tokenize da sistemare con nltp
 def normalize(text):
     """ A simple funzion to normalize a text.
@@ -204,7 +173,6 @@ class PostingList:
                 while (x < len(self._postings[i]._poslist) and y < len(other._postings[j]._poslist)):
                     if(self._postings[i]._poslist[x] == other._postings[j]._poslist[y]-1):
                         phrase.append(other._postings[j])
-                        break
                     x += 1
                     y += 1
                 i += 1

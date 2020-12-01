@@ -1,82 +1,138 @@
-from term_operations import PostingList
+import re
+from term_operations_dct import Term
+from term_operations_dct import PostingList
 
-class TrieNode(object):
-    """
-    Our trie node implementation. Very basic. but does the job
-    """
 
-    def __init__(self, char: str):
-        self.char = char
-        self.children = []
-        # Is it the last character of the word.`
-        self.word_finished = False
 
+
+class TrieNode():
+    def __init__(self):
+        # Initialising one node for trie
+        self.children = {}
+        self.last = False
         self.posting_list = PostingList
-        # How many times this character appeared in the addition process
-        self.counter = 1
+        self.term = Term
 
-def add(root, word: str, docID, position):
-    """
-    Adding a word in the trie structure
-    """
-    node = root
-    for char in word:
-        found_in_child = False
-        # Search for the character in the children of the present `node`
-        for child in node.children:
-            if child.char == char:
-                # We found it, increase the counter by 1 to keep track that another
-                # word has it as well
-                child.counter += 1
-                # And point the node to the child that contains this char
-                node = child
-                found_in_child = True
+
+class Trie():
+    def __init__(self):
+
+        # Initialising the trie structure.
+        self.root = TrieNode()
+        self.word_list = []
+
+
+    def insert(self, key, term):
+
+        # Inserts a key into trie if it does not exist already.
+        # And if the key is a prefix of the trie node, just
+        # marks it as leaf node.
+        node = self.root
+
+        for a in list(key):
+            if not node.children.get(a):
+                node.children[a] = TrieNode()
+
+            node = node.children[a]
+
+        node.last = True
+        try:
+            node.term.merge(term)
+            #node.posting_list.merge(PostingList.from_docID(docID, position))
+        except TypeError:
+            node.term = term
+            #node.posting_list = PostingList.from_docID(docID, position)
+
+
+    def search(self, key):
+
+        # Searches the given key in trie for a full match
+        # and returns True on success else returns False.
+        node = self.root
+        found = True
+
+        for a in list(key):
+            if not node.children.get(a):
+                found = False
                 break
-        # We did not find it so add a new chlid
-        if not found_in_child:
-            new_node = TrieNode(char)
-            node.children.append(new_node)
-            # And then point node to the new child
-            node = new_node
-    # Everything finished. Mark it as the end of a word.
-    node.word_finished = True
-    try:
-        node.posting_list.merge(PostingList.from_docID(docID, position))
-    except TypeError:
-        node.posting_list = PostingList.from_docID(docID, position)
+
+            node = node.children[a]
+
+        if node.last:
+            return node.term.posting_list
 
 
-def find_item(root, prefix: str):
-    """
-    Check and return
-      1. If the prefix exsists in any of the words we added so far
-      2. If yes then how may words actually have the prefix
-    """
-    node = root
-    # If the root node has no children, then return False.
-    # Because it means we are trying to search in an empty trie
-    if not root.children:
-        return False
-    for char in prefix:
-        char_not_found = True
-        # Search through all the children of the present `node`
-        for child in node.children:
-            if child.char == char:
-                # We found the char existing in the child.
-                char_not_found = False
-                # Assign node as the child containing the char and break
-                node = child
+    def suggestionsRec(self, node, word):
+
+        # Method to recursively traverse the trie
+        # and return a whole word.
+        if node.last:
+            self.word_list.append(node.term.posting_list)
+
+        for a, n in node.children.items():
+            self.suggestionsRec(n, word + a)
+
+    def getWildcard(self, key):
+
+        # Returns all the words in the trie whose common
+        # prefix is the given key thus listing out all
+        # the suggestions for autocomplete.
+        node = self.root
+        not_found = False
+        temp_word = ''
+
+        for a in list(key):
+            if not node.children.get(a):
+                not_found = True
                 break
-        # Return False anyway when we did not find a char.
-        if char_not_found:
-            return False
-    # Well, we are here means we have found the prefix. Return true to indicate that
-    # And also the counter of the last node. This indicates how many words have this
-    # prefix
-    if node.word_finished:
-        return node.posting_list
-    return
+
+            temp_word += a
+            node = node.children[a]
+
+        if not_found:
+            return 0
+        elif node.last and not node.children:
+            return -1
+
+        self.suggestionsRec(node, temp_word)
+
+        return self.word_list
 
 
+    def suggestionsRecMW(self, node, word, init):
 
+        # Method to recursively traverse the trie
+        # and return a whole word.
+        reg = re.compile(init)
 
+        if node.last and re.match(reg, word):
+            self.word_list.append(node.term.posting_list)
+
+        for a, n in node.children.items():
+            self.suggestionsRecMW(n, word + a, init)
+
+    def getWildcardMW(self, key, init):
+
+        # Returns all the words in the trie whose common
+        # prefix is the given key thus listing out all
+        # the suggestions for autocomplete.
+        node = self.root
+        not_found = False
+        temp_word = ''
+
+        for a in list(key):
+            if not node.children.get(a):
+                not_found = True
+                break
+
+            temp_word += a
+            node = node.children[a]
+
+        if not_found:
+            return 0
+        elif node.last and not node.children:
+            return -1
+
+        self.suggestionsRecMW(node, temp_word, init)
+
+        return self.word_list
