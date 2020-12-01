@@ -3,10 +3,10 @@ from functools import total_ordering, reduce
 import csv
 import nltk
 import time
-from term_operations import DataDescription
-from term_operations import tokenize
+from term_operations4 import DataDescription
+from term_operations4 import tokenize
 
-from trie import Trie
+from trie4 import Trie
 
 nltk.download('punkt')
 nltk.download('stopwords')

@@ -1,6 +1,6 @@
 import re
 
-from term_operations import PostingList
+from term_operations4 import PostingList
 
 # Python3 program to demonstrate auto-complete
 # feature using Trie data structure.

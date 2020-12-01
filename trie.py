@@ -1,6 +1,6 @@
 import re
-from term_operations_dct import Term
-from term_operations_dct import PostingList
+from term_operations import Term
+from term_operations import PostingList
 
 
 

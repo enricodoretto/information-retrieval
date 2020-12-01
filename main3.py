@@ -3,11 +3,11 @@ from functools import total_ordering, reduce
 import csv
 import nltk
 import time
-from term_operations import DataDescription
-from term_operations import tokenize
-from trie import TrieNode
-from trie import add
-from trie import find_item
+from term_operations4 import DataDescription
+from term_operations4 import tokenize
+from trie3 import TrieNode
+from trie3 import add
+from trie3 import find_item
 
 nltk.download('punkt')
 nltk.download('stopwords')

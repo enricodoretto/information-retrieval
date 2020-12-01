@@ -281,9 +281,9 @@ class InvertedIndex:
             # To observe the progress of our indexing.
             if (docID % 1000 == 0 and docID != 0):
                 print(str(docID), end='...')
-
-                #enable break to limit indexing for testing
-                break
+                # enable break to limit indexing for testing
+                if(docID % 20000 == 0):
+                    break
 
 
         idx = cls()
@@ -475,7 +475,7 @@ def operate():
     ir = pickle.load(open("data/dictionary.pickle", "rb", -1))
     print("Index retrieved!")
     tic = time.perf_counter()
-    query(ir, "c#t#")
+    query(ir, "#a#t")
     toc = time.perf_counter()
     print(f"Query performed in {toc - tic:0.4f} seconds")
 
@@ -483,4 +483,3 @@ def operate():
 if __name__ == "__main__":
     #initialization()
     operate()
-

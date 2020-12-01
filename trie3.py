@@ -1,4 +1,4 @@
-from term_operations import PostingList
+from term_operations4 import PostingList
 
 class TrieNode(object):
     """
