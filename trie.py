@@ -73,7 +73,7 @@ class Trie():
             self.suggestionsRec(n, word + a)
 
     def getWildcard(self, key):
-
+        self.word_list = []
         # Returns all the words in the trie whose common
         # prefix is the given key thus listing out all
         # the suggestions for autocomplete.
@@ -112,6 +112,7 @@ class Trie():
             self.suggestionsRecMW(n, word + a, init)
 
     def getWildcardMW(self, key, init):
+        self.word_list = []
 
         # Returns all the words in the trie whose common
         # prefix is the given key thus listing out all
@@ -136,3 +137,5 @@ class Trie():
         self.suggestionsRecMW(node, temp_word, init)
 
         return self.word_list
+
+

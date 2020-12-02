@@ -6,6 +6,13 @@ from nltk.corpus import stopwords
 import time
 
 
+#necessario per salvare un indice grande con pickle
+import sys
+sys.setrecursionlimit(10000)
+
+#garbage collector
+import gc
+
 import pickle
 nltk.download('punkt')
 nltk.download('stopwords')
@@ -282,8 +289,8 @@ class InvertedIndex:
             if (docID % 1000 == 0 and docID != 0):
                 print(str(docID), end='...')
                 # enable break to limit indexing for testing
-                if(docID % 20000 == 0):
-                    break
+                #if(docID % 20000 == 0):
+                #    break
 
 
         idx = cls()
@@ -462,13 +469,21 @@ def query(ir, text):
 
 #lettura file, creazione e salvataggio indice
 def initialization():
+    gc.disable()
+
     tic = time.perf_counter()
     corpus = read_data_descriptions()
     ir = IRsystem.from_corpus(corpus)
-    with open("data/dictionary.pickle", "wb") as file_:
-        pickle.dump(ir, file_, -1)
+    tac = time.perf_counter()
+    print(f"Index builded in {tac - tic:0.4f} seconds")
+
+    file = open("data/dictionary.pickle", "wb")
+    pickle.dump(ir, file, protocol=-1)
+    file.close()
     toc = time.perf_counter()
-    print(f"Index created in {toc - tic:0.4f} seconds")
+    print(f"Index saved in {toc - tac:0.4f} seconds")
+
+    gc.enable()
 
 def operate():
     print("Retrieving index...")

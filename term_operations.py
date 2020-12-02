@@ -2,6 +2,7 @@ import re
 from functools import total_ordering, reduce
 import nltk
 from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
 
 class ImpossibleMergeError(Exception):
     pass
@@ -34,28 +35,35 @@ class Term:
         return self.term + ": " + repr(self.posting_list)
 
 
-#normalize e tokenize da sistemare con nltp
 def normalize(text):
-    """ A simple funzion to normalize a text.
-    It removes everything that is not a word, a space or an hyphen
-    and downcases all the text.
-    """
-    no_punctuation = re.sub(r'[^\w^\s^-]', '', text)
+    no_punctuation = re.sub(r'[^\w^\s^#-]', '', text)
+    #no_punctuation = re.sub(r'[^\P{P}-#]+', '', text)
     downcase = no_punctuation.lower()
     return downcase
 
 
-def tokenize(movie):
-    """ From a movie description returns a posting list of all
-    tokens present in the description.
-    """
+def process(desc):
     stop_words = set(stopwords.words('english'))
-    text = normalize(movie.description)
-    tokenized = nltk.word_tokenize(text)
-    filtered_sentence = [w for w in tokenized if not w in stop_words]
 
-    #return list(text.split())
-    return filtered_sentence
+    normalized = normalize(desc)
+    tokenized = normalized.split()
+    no_stop_words = [w for w in tokenized if not w in stop_words]
+    processed = stem(no_stop_words)
+    return processed
+
+def stem(text):
+    ps = PorterStemmer()
+    stemmed = [ps.stem(word) for word in text]
+    return stemmed
+
+
+def tokenize_query(query):
+
+
+    normalized = normalize(query)
+    tokenized = normalized.split()
+    stemmed = [ps.stem(word) for word in tokenized]
+    return stemmed
 
 @total_ordering
 class Posting:
