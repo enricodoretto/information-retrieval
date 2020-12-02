@@ -35,7 +35,6 @@ def read_data_descriptions():
         corpus = []
         for desc in descriptions:
             try:
-                #coppia titolo-testo
                 corpelement = DataDescription(names_table[desc[0]], desc[1])
                 corpus.append(corpelement)
             except KeyError:
@@ -61,11 +60,10 @@ class InvertedIndex:
 
                     token = token[1:] + token[0]
 
-                # To observe the progress of our indexing.
             if (docID % 1000 == 0 and docID != 0):
                 print(str(docID), end='...')
                 #break
-                # enable break to limit indexing for testing
+                # per limitare l'index a 20000 o 1000 elementi
                 if(docID % 20000 == 0):
                     break
 
@@ -90,17 +88,16 @@ class IRsystem:
         postings = []
 
         for w in norm_words:
-
             counter = w.count('#')
             if not counter == 0:
                 #vuol dire che è una wildcard
                 '''implementare multiple e errore se non trovata'''
 
                 if(counter == 1):
+                    #caso di wildcard semplice, basta ruotare
                     while (not w.endswith("#")):
                         w = w[1:] + w[0]
                     w = w[:-1]
-                    #return self._index._trie.getWildcardW(w)
 
                     singlewcard = self._index._trie.getWildcard(w)
                     ressinglewcard = reduce(lambda x, y: x.union(y), singlewcard)
@@ -119,10 +116,8 @@ class IRsystem:
                     # tolgo il dollaro alla prima wildcard e sostituisco gli # del resto della parola con i simboli per regex
                     key1 = key1[:-1]
                     key1 = key1[:-1]
-
                     key2 = cards[0].replace("#", ".+")
                     pattern = key1 + "\$" + key2 + ".+"
-                    #return self._index._trie.getCorrWords(key,pattern)
                     multiplewcards = self._index._trie.getWildcardMW(key, pattern)
                     resmultiplewcards = reduce(lambda x, y: x.union(y), multiplewcards)
                     postings.append(resmultiplewcards)
