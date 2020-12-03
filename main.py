@@ -44,12 +44,15 @@ def read_data_descriptions():
 class InvertedIndex:
     def __init__(self):
         self._trie = Trie
+        self._number_of_docs = 0
 
     @classmethod
     def from_corpus(cls, corpus):
         trie = Trie()
+        number_of_docs = 0
 
         for docID, document in enumerate(corpus):
+            number_of_docs += 1
             tokens = process(document.description)
             for index, token in enumerate(tokens):
                 term = Term(token, docID, index)
@@ -62,12 +65,14 @@ class InvertedIndex:
 
             if (docID % 1000 == 0 and docID != 0):
                 print(str(docID), end='...')
-                #break
+
+                break
                 # per limitare l'index a 20000 o 1000 elementi
-                if(docID % 20000 == 0):
-                    break
+                #if(docID % 20000 == 0):
+                #    break
 
         idx = cls()
+        idx._number_of_docs = number_of_docs
         idx._trie = trie
         return idx
 
@@ -118,38 +123,39 @@ class IRsystem:
                     key1 = key1[:-1]
                     key2 = cards[0].replace("#", ".+")
                     pattern = key1 + "\$" + key2 + ".+"
+                    #faccio la query sulla wildcard finale e aggiungo alle posting list da ritornare solo se il termine matcha il pattern
                     multiplewcards = self._index._trie.getWildcardMW(key, pattern)
                     resmultiplewcards = reduce(lambda x, y: x.union(y), multiplewcards)
                     postings.append(resmultiplewcards)
 
             else:
+                #caso di parola non wildcard
                 res = self._index._trie.search(w)
                 postings.append(res)
                 #if word not found
                 if(not res):
-                    break
-            #postings.append(res)
+                    return
 
-        #having all the postings now I have to compute and-or-not
+        #una volta ottenute le posting list dei term della query devo rispondere in base alle connections
         plist = []
         if(not connections and len(norm_words) > 1):
-            #se non ho connessioni e ho più di due parole è una frase
+            #se non ho connessioni e ho più di due parole allora è una frase
             plist = reduce(lambda x, y: x.phrase(y), postings)
 
-        elif (len(norm_words) == 1):
-            #sono nel caso di una sola parola
-            plist = reduce(lambda x, y: x.intersection(y), postings)
-
-        else:
+        elif(connections):
             for conn in connections:
                 if(conn == "and"):
                     plist = reduce(lambda x, y: x.intersection(y), postings)
                 elif(conn == "or"):
                     plist = reduce(lambda x, y: x.union(y), postings)
                 else:
-                    pass
                     '''sviluppare la not'''
-                    plist = reduce(lambda x, y: x.not_query(y), postings)
+                    #plist = reduce(lambda x, y: x.not_query(y), postings)
+                    plist = postings[0].not_query_all_docs(self._index._number_of_docs)
+
+        else:
+            #sono nel caso di una sola parola
+            plist = reduce(lambda x, y: x.intersection(y), postings)
 
         return plist.get_from_corpus(self._corpus)
 
@@ -160,7 +166,6 @@ def query(ir, text):
     connections = []
     terms = []
 
-    #Divide terms to retrieve and connections such and, or, not
     for word in tokenized:
         if (word == "and" or word == "or" or word == "not"):
             connections.append(word)
@@ -168,7 +173,6 @@ def query(ir, text):
             terms.append(word + "$")
 
     terms = stem(terms)
-
     answer = ir.answer_query(terms, connections)
     for doc in answer:
         print(doc)
@@ -185,10 +189,9 @@ def initialization():
     ir = IRsystem.from_corpus(corpus)
     tac = time.perf_counter()
     print(f"Index builded in {tac - tic:0.4f} seconds")
-
     #file = open('data/trie_index_20000.pickle', 'wb')
-    #file = open("data/trie_index_1000.pickle", "wb")
-    file = open("data/trie_index.pickle", "wb")
+    file = open("data/trie_index_1000.pickle", "wb")
+    #file = open("data/trie_index.pickle", "wb")
     pickle.dump(ir, file, protocol=-1)
     file.close()
     toc = time.perf_counter()
@@ -206,8 +209,8 @@ def operate():
             print("Retrieving index...")
             tic = time.perf_counter()
             #f = open('data/trie_index_20000.pickle', 'rb')
-            #f = open('data/trie_index_1000.pickle', 'rb')
-            f = open('data/trie_index.pickle', 'rb')
+            f = open('data/trie_index_1000.pickle', 'rb')
+            #f = open('data/trie_index.pickle', 'rb')
 
             ir = pickle.load(f)
             f.close()

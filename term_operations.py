@@ -17,9 +17,6 @@ class Term:
         self.posting_list = PostingList.from_docID(docID, position)
 
     def merge(self, other):
-        """Merge (destructively) this term and the corresponding posting list
-        with another equal term and its corrsponding posting list.
-        """
         if (self.term == other.term):
             self.posting_list.merge(other.posting_list)
         else:
@@ -37,10 +34,13 @@ class Term:
 
 def normalize(text):
     no_punctuation = re.sub(r'[^\w^\s^#-]', '', text)
-    #no_punctuation = re.sub(r'[^\P{P}-#]+', '', text)
     downcase = no_punctuation.lower()
     return downcase
 
+def stem(text):
+    ps = PorterStemmer()
+    stemmed = [ps.stem(word) for word in text]
+    return stemmed
 
 def process(desc):
     stop_words = set(stopwords.words('english'))
@@ -51,18 +51,12 @@ def process(desc):
     processed = stem(no_stop_words)
     return processed
 
-def stem(text):
-    ps = PorterStemmer()
-    stemmed = [ps.stem(word) for word in text]
-    return stemmed
-
-
+#the remove of stop words
 def tokenize_query(query):
-
-
     normalized = normalize(query)
     tokenized = normalized.split()
-    stemmed = [ps.stem(word) for word in tokenized]
+    #stemmed = [ps.stem(word) for word in tokenized]
+    stemmed = stem(tokenized)
     return stemmed
 
 @total_ordering
@@ -70,7 +64,7 @@ class Posting:
 
     def __init__(self, docID, pos):
         self._docID = docID
-        self._poslist = []  # Term frequency
+        self._poslist = []
         self._poslist.append(pos)
 
     def get_from_corpus(self, corpus):
@@ -177,6 +171,7 @@ class PostingList:
             union.append(other._postings[k])
         return PostingList.from_posting_list(union)
 
+
     '''da sviluppare la NOT QUERY PER TUTTO IL DIZIONARIO'''
     def not_query(self, other):
         '''per fare la not devo prendere la posting list del termine
@@ -199,6 +194,22 @@ class PostingList:
             else:
                 j += 1
         return PostingList.from_posting_list(not_term)
+
+    def not_query_all_docs(self,number_of_docs):
+        alldocs = []
+
+        docID = 1
+        while(docID < number_of_docs):
+            alldocs.append(Posting(docID, 1))
+            docID += 1
+
+        i = 0
+        while(i < len(self._postings)):
+            alldocs.remove(self._postings[i])
+            i += 1
+
+        #notdocs = [x for x in alldocs if x not in self._postings]
+        return PostingList.from_posting_list(alldocs)
 
     def phrase(self,other):
         phrase = []

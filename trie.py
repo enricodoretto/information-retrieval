@@ -37,17 +37,16 @@ class Trie():
 
         node.last = True
         try:
+            #se il nodo è già presente faccio il merge delle rispettive posting list
             node.term.merge(term)
-            #node.posting_list.merge(PostingList.from_docID(docID, position))
         except TypeError:
+            #se il nodo non esiste già
             node.term = term
-            #node.posting_list = PostingList.from_docID(docID, position)
 
 
     def search(self, key):
 
-        # Searches the given key in trie for a full match
-        # and returns True on success else returns False.
+        #ricerca della parola non wildcard
         node = self.root
         found = True
 
@@ -74,9 +73,7 @@ class Trie():
 
     def getWildcard(self, key):
         self.word_list = []
-        # Returns all the words in the trie whose common
-        # prefix is the given key thus listing out all
-        # the suggestions for autocomplete.
+
         node = self.root
         not_found = False
         temp_word = ''
@@ -114,9 +111,6 @@ class Trie():
     def getWildcardMW(self, key, init):
         self.word_list = []
 
-        # Returns all the words in the trie whose common
-        # prefix is the given key thus listing out all
-        # the suggestions for autocomplete.
         node = self.root
         not_found = False
         temp_word = ''
