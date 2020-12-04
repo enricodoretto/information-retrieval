@@ -160,6 +160,94 @@ class IRsystem:
         return plist.get_from_corpus(self._corpus)
 
 
+    def answer_query_full(self, query):
+
+        norm_words = query
+        postings = []
+
+        i=0
+        while(i<len(norm_words)):
+            if (norm_words[i] != "and" and norm_words[i] != "or" and norm_words[i] != "not"):
+                norm_words[i] = norm_words[i] + '$'
+                counter = norm_words[i].count('#')
+                if not counter == 0:
+                    #vuol dire che è una wildcard
+                    '''implementare multiple e errore se non trovata'''
+
+                    if(counter == 1):
+                        #caso di wildcard semplice, basta ruotare
+                        while (not norm_words[i].endswith("#")):
+                            norm_words[i] = norm_words[i][1:] + norm_words[i][0]
+                        norm_words[i] = norm_words[i][:-1]
+
+                        singlewcard = self._index._trie.getWildcard(norm_words[i])
+                        ressinglewcard = reduce(lambda x, y: x.union(y), singlewcard)
+                        #postings.append(ressinglewcard)
+                        norm_words[i] = ressinglewcard
+
+                    elif(counter > 1):
+                        '''multiple wildcard'''
+                        #salvo la prima parte, tengo solo la ultima e faccio la query su questa
+                        cards = norm_words[i].rsplit('#', 1)
+                        key1 = '#' + cards[1]
+                        while(not key1.endswith("#")):
+                            key1 = key1[1:] + key1[0]
+
+                        key = key1[:-1]
+
+                        # tolgo il dollaro alla prima wildcard e sostituisco gli # del resto della parola con i simboli per regex
+                        key1 = key1[:-1]
+                        key1 = key1[:-1]
+                        key2 = cards[0].replace("#", ".+")
+                        pattern = key1 + "\$" + key2 + ".+"
+                        #faccio la query sulla wildcard finale e aggiungo alle posting list da ritornare solo se il termine matcha il pattern
+                        multiplewcards = self._index._trie.getWildcardMW(key, pattern)
+                        resmultiplewcards = reduce(lambda x, y: x.union(y), multiplewcards)
+                        norm_words[i] = resmultiplewcards
+
+
+                else:
+                    #caso di parola non wildcard
+                    res = self._index._trie.search(norm_words[i])
+                    norm_words[i] = res
+                    #if word not found
+                    if(not res):
+                        return
+                i += 1
+
+            else:
+                i += 1
+
+        #una volta ottenute le posting list dei term della query devo rispondere in base alle connections
+        plist = []
+        j = 0
+        #risolvo le phrase queries
+        while (j < len(norm_words)-1):
+            if not isinstance(norm_words[j], str) and not isinstance(norm_words[j+1],str):
+                norm_words[j] = norm_words[j].phrase(norm_words[j+1])
+                del norm_words[j+1]
+            j += 1
+
+        j=0
+        while (len(norm_words) != 1):
+            if not isinstance(norm_words[j], str) and norm_words[j+1] == "and" and not isinstance(norm_words[j+2], str):
+                norm_words[j] = norm_words[j].intersection(norm_words[j+2])
+                del norm_words[j + 1]
+                del norm_words[j + 1]
+
+            elif not isinstance(norm_words[j], str) and norm_words[j+1] == "or" and not isinstance(norm_words[j+2], str):
+                norm_words[j] = norm_words[j].union(norm_words[j+2])
+                del norm_words[j + 1]
+                del norm_words[j + 1]
+
+            elif not isinstance(norm_words[j], str) and norm_words[j+1] == "and" and norm_words[j+2] == "not" and not isinstance(norm_words[j+3], str):
+                norm_words[j] = norm_words[j].not_query(norm_words[j+3])
+                del norm_words[j + 1]
+                del norm_words[j + 1]
+                del norm_words[j + 1]
+
+        return norm_words[0].get_from_corpus(self._corpus)
+
 def query(ir, text):
     normalized = normalize(text)
     tokenized = normalized.split()
@@ -173,7 +261,16 @@ def query(ir, text):
             terms.append(word + "$")
 
     terms = stem(terms)
-    answer = ir.answer_query(terms, connections)
+
+    for word in tokenized:
+        if (word != "and" or word != "or" or word != "not"):
+            word + "$"
+
+    termsq = stem(tokenized)
+
+    #answer = ir.answer_query(terms, connections)
+    answer = ir.answer_query_full(termsq)
+
     for doc in answer:
         print(doc)
     print(len(answer))

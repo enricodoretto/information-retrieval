@@ -39,7 +39,7 @@ def normalize(text):
 
 def stem(text):
     ps = PorterStemmer()
-    stemmed = [ps.stem(word) for word in text]
+    stemmed = [ps.stem(word) for word in text if word != "and" or word != "or" or word != "not"]
     return stemmed
 
 def process(desc):
@@ -171,13 +171,7 @@ class PostingList:
             union.append(other._postings[k])
         return PostingList.from_posting_list(union)
 
-
-    '''da sviluppare la NOT QUERY PER TUTTO IL DIZIONARIO'''
     def not_query(self, other):
-        '''per fare la not devo prendere la posting list del termine
-        se è chiamata singola allora devo prendere una posting list con tutti i termini
-        altrimenti basta togliere quelli che ci sono nell'altra'''
-
         #self = quella della not
         #other = altra posting list o posting list di tutti i documenti
         not_term = []
@@ -197,7 +191,6 @@ class PostingList:
 
     def not_query_all_docs(self,number_of_docs):
         alldocs = []
-
         docID = 1
         while(docID < number_of_docs):
             alldocs.append(Posting(docID, 1))
@@ -208,7 +201,6 @@ class PostingList:
             alldocs.remove(self._postings[i])
             i += 1
 
-        #notdocs = [x for x in alldocs if x not in self._postings]
         return PostingList.from_posting_list(alldocs)
 
     def phrase(self,other):
