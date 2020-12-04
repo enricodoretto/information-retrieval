@@ -18,10 +18,6 @@ nltk.download('punkt')
 nltk.download('stopwords')
 
 
-class WordNotFoundError(Exception):
-    pass
-
-
 # lettura dei dati e costruzione del corpus
 def read_data_descriptions():
     filename = 'data/plot_summaries.txt'
