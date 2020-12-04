@@ -2,5 +2,3 @@
 
 TODO:
 - new dataset
-
-- combinare tutte le query per averne una unica

@@ -3,9 +3,7 @@ from term_operations import Term
 from term_operations import PostingList
 
 
-
-
-class TrieNode():
+class TrieNode:
     def __init__(self):
         # Initialising one node for trie
         self.children = {}
@@ -14,21 +12,14 @@ class TrieNode():
         self.term = Term
 
 
-class Trie():
+class Trie:
     def __init__(self):
-
-        # Initialising the trie structure.
         self.root = TrieNode()
+        # tenere traccia della parola corrente durante la ricerca
         self.word_list = []
 
-
     def insert(self, key, term):
-
-        # Inserts a key into trie if it does not exist already.
-        # And if the key is a prefix of the trie node, just
-        # marks it as leaf node.
         node = self.root
-
         for a in list(key):
             if not node.children.get(a):
                 node.children[a] = TrieNode()
@@ -37,19 +28,16 @@ class Trie():
 
         node.last = True
         try:
-            #se il nodo è già presente faccio il merge delle rispettive posting list
+            # se il nodo è già presente faccio il merge delle rispettive posting list
             node.term.merge(term)
         except TypeError:
-            #se il nodo non esiste già
+            # se il nodo non esiste già
             node.term = term
 
-
     def search(self, key):
-
-        #ricerca della parola non wildcard
+        # ricerca della parola non wildcard
         node = self.root
         found = True
-
         for a in list(key):
             if not node.children.get(a):
                 found = False
@@ -60,18 +48,14 @@ class Trie():
         if node.last:
             return node.term.posting_list
 
-
-    def suggestionsRec(self, node, word):
-
-        # Method to recursively traverse the trie
-        # and return a whole word.
+    def suggestions(self, node, word):
         if node.last:
             self.word_list.append(node.term.posting_list)
 
         for a, n in node.children.items():
-            self.suggestionsRec(n, word + a)
+            self.suggestions(n, word + a)
 
-    def getWildcard(self, key):
+    def get_wildcard(self, key):
         self.word_list = []
 
         node = self.root
@@ -91,24 +75,20 @@ class Trie():
         elif node.last and not node.children:
             return -1
 
-        self.suggestionsRec(node, temp_word)
+        self.suggestions(node, temp_word)
 
         return self.word_list
 
-
-    def suggestionsRecMW(self, node, word, init):
-
-        # Method to recursively traverse the trie
-        # and return a whole word.
+    def suggestions_multiple_wildcard(self, node, word, init):
         reg = re.compile(init)
 
         if node.last and re.match(reg, word):
             self.word_list.append(node.term.posting_list)
 
         for a, n in node.children.items():
-            self.suggestionsRecMW(n, word + a, init)
+            self.suggestions_multiple_wildcard(n, word + a, init)
 
-    def getWildcardMW(self, key, init):
+    def get_multiple_wildcard(self, key, init):
         self.word_list = []
 
         node = self.root
@@ -128,8 +108,6 @@ class Trie():
         elif node.last and not node.children:
             return -1
 
-        self.suggestionsRecMW(node, temp_word, init)
+        self.suggestions_multiple_wildcard(node, temp_word, init)
 
         return self.word_list
-
-

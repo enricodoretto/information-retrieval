@@ -1,23 +1,24 @@
 import re
-from functools import total_ordering, reduce
-import nltk
+from functools import total_ordering
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
+
 
 class ImpossibleMergeError(Exception):
     pass
 
+
 @total_ordering
 class Term:
-#a un termine è associata una posting list
+    # a un termine è associata una posting list
 
     def __init__(self, term, docID, position):
-        #quando ho un nuovo termine la posting list è formata solo dal primo docID
+        # quando ho un nuovo termine la posting list è formata solo dal primo docID
         self.term = term
         self.posting_list = PostingList.from_docID(docID, position)
 
     def merge(self, other):
-        if (self.term == other.term):
+        if self.term == other.term:
             self.posting_list.merge(other.posting_list)
         else:
             raise ImpossibleMergeError()
@@ -37,10 +38,12 @@ def normalize(text):
     downcase = no_punctuation.lower()
     return downcase
 
+
 def stem(text):
     ps = PorterStemmer()
     stemmed = [ps.stem(word) for word in text if word != "and" or word != "or" or word != "not"]
     return stemmed
+
 
 def process(desc):
     stop_words = set(stopwords.words('english'))
@@ -51,13 +54,15 @@ def process(desc):
     processed = stem(no_stop_words)
     return processed
 
-#the remove of stop words
+
+# the remove of stop words
 def tokenize_query(query):
     normalized = normalize(query)
     tokenized = normalized.split()
-    #stemmed = [ps.stem(word) for word in tokenized]
+    # stemmed = [ps.stem(word) for word in tokenized]
     stemmed = stem(tokenized)
     return stemmed
+
 
 @total_ordering
 class Posting:
@@ -89,6 +94,7 @@ class Posting:
     def __hash__(self):
         return hash(self._docID)
 
+
 class PostingList:
 
     def __init__(self):
@@ -112,14 +118,7 @@ class PostingList:
         return plist
 
     def merge(self, other):
-        #per unire le posting list di un termine presente in più docID
-        """Merge the other posting list to this one in a desctructive
-        way, i.e., modifying the current posting list. This method assume
-        that all the docIDs of the second list are higher than the ones
-        in this list. It assumes the two posting lists to be ordered
-        and non-empty. Under those assumptions duplicate docIDs are
-        discard
-        """
+        # per unire le posting list di un termine presente in più docID
         i = 0
         last = self._postings[-1]
         while (i < len(other._postings) and last == other._postings[i]):
@@ -128,38 +127,32 @@ class PostingList:
         self._postings += other._postings[i:]
 
     def intersection(self, other):
-        #per la query
-        """Returns a new posting list resulting from the intersection
-        of this one and the one passed as argument.
-        """
+        # per la query
         intersection = []
         i = 0
         j = 0
-        while (i < len(self._postings) and j < len(other._postings)):
-            if (self._postings[i] == other._postings[j]):
+        while i < len(self._postings) and j < len(other._postings):
+            if self._postings[i] == other._postings[j]:
                 intersection.append(self._postings[i])
                 i += 1
                 j += 1
-            elif (self._postings[i] < other._postings[j]):
+            elif self._postings[i] < other._postings[j]:
                 i += 1
             else:
                 j += 1
         return PostingList.from_posting_list(intersection)
 
     def union(self, other):
-        #per la query
-        """Returns a new posting list resulting from the union of this
-        one and the one passed as argument.
-        """
+        # per la query
         union = []
         i = 0
         j = 0
-        while (i < len(self._postings) and j < len(other._postings)):
-            if (self._postings[i] == other._postings[j]):
+        while i < len(self._postings) and j < len(other._postings):
+            if self._postings[i] == other._postings[j]:
                 union.append(self._postings[i])
                 i += 1
                 j += 1
-            elif (self._postings[i] < other._postings[j]):
+            elif self._postings[i] < other._postings[j]:
                 union.append(self._postings[i])
                 i += 1
             else:
@@ -172,48 +165,47 @@ class PostingList:
         return PostingList.from_posting_list(union)
 
     def not_query(self, other):
-        #self = quella della not
-        #other = altra posting list o posting list di tutti i documenti
+        # aggiungo a not_term solo i posting presenti in other ma non in self
         not_term = []
         i = 0
         j = 0
-        while (i < len(self._postings) and j < len(other._postings)):
-            if (self._postings[i] == other._postings[j]):
-                #se sono uguali non lo aggiungo
+        while i < len(self._postings) and j < len(other._postings):
+            if self._postings[i] == other._postings[j]:
+                # se sono uguali non lo aggiungo
                 i += 1
                 j += 1
-            elif (self._postings[i] < other._postings[j]):
+            elif self._postings[i] < other._postings[j]:
                 not_term.append(self._postings[i])
                 i += 1
             else:
                 j += 1
         return PostingList.from_posting_list(not_term)
 
-    def not_query_all_docs(self,number_of_docs):
+    def not_query_all_docs(self, number_of_docs):
         alldocs = []
         docID = 1
-        while(docID < number_of_docs):
+        while docID < number_of_docs:
             alldocs.append(Posting(docID, 1))
             docID += 1
 
         i = 0
-        while(i < len(self._postings)):
+        while i < len(self._postings):
             alldocs.remove(self._postings[i])
             i += 1
 
         return PostingList.from_posting_list(alldocs)
 
-    def phrase(self,other):
+    def phrase(self, other):
         phrase = []
-        i=0
-        j=0
-        while (i < len(self._postings) and j < len(other._postings)):
-            x=0
-            y=0
-            if (self._postings[i] == other._postings[j]):
-                #sono nello stesso documento, devo controllare se sono vicini
-                while (x < len(self._postings[i]._poslist) and y < len(other._postings[j]._poslist)):
-                    if(self._postings[i]._poslist[x] == other._postings[j]._poslist[y]-1):
+        i = 0
+        j = 0
+        while i < len(self._postings) and j < len(other._postings):
+            x = 0
+            y = 0
+            if self._postings[i] == other._postings[j]:
+                # sono nello stesso documento, devo controllare se sono vicini
+                while x < len(self._postings[i]._poslist) and y < len(other._postings[j]._poslist):
+                    if self._postings[i]._poslist[x] == other._postings[j]._poslist[y]-1:
                         phrase.append(other._postings[j])
                         break
                     x += 1
@@ -221,7 +213,7 @@ class PostingList:
                 i += 1
                 j += 1
 
-            elif (self._postings[i] < other._postings[j]):
+            elif self._postings[i] < other._postings[j]:
                 i += 1
             else:
                 j += 1
@@ -232,10 +224,7 @@ class PostingList:
 
 
 class DataDescription:
-    #generare la coppia titolo-testo
+    # generare la coppia titolo-testo
     def __init__(self, title, description):
         self.title = title
         self.description = description
-
-    def __repr__(self):
-        return self.title  # + "\n" + self.description + "\n"

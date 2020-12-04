@@ -103,7 +103,7 @@ class IRsystem:
                     while (not w.endswith("#")):
                         w = w[1:] + w[0]
                     w = w[:-1]
-                    wcards = self._index._trie.getWildcard(w)
+                    wcards = self._index._trie.get_wildcard(w)
                     res = reduce(lambda x, y: x.union(y), wcards)
 
                 elif(counter > 1):
@@ -122,7 +122,7 @@ class IRsystem:
 
                     key2 = cards[0].replace("#", ".+")
                     pattern = key1 + "\$" + key2 + ".+"
-                    wcards = self._index._trie.getWildcardMW(key, pattern)
+                    wcards = self._index._trie.get_multiple_wildcard(key, pattern)
                     res = reduce(lambda x, y: x.union(y), wcards)
 
             else:
