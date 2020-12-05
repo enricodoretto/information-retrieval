@@ -73,7 +73,7 @@ class Posting:
         self._poslist.append(pos)
 
     def get_from_corpus(self, corpus):
-        return corpus[self._docID]
+        return corpus[self._docID].title
 
     def __eq__(self, other):
         """Perform the comparison between this posting and another one.
@@ -221,6 +221,15 @@ class PostingList:
 
     def get_from_corpus(self, corpus):
         return list(map(lambda x: x.get_from_corpus(corpus), self._postings))
+
+    def __len__(self):
+        return len(self._postings)
+
+    def __iter__(self):
+        return iter(self._postings)
+
+    def __repr__(self):
+        return ", ".join(map(str, self._postings))
 
 
 class DataDescription:

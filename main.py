@@ -64,7 +64,7 @@ class InvertedIndex:
 
             if docID % 1000 == 0 and docID != 0:
                 print(str(docID), end='...')
-                #break
+                break
                 # per limitare l'index a 20000 o 1000 elementi
                 #if(docID % 20000 == 0):
                 #    break
