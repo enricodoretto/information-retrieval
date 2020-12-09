@@ -6,8 +6,7 @@ import time
 from term_operations import Term
 from term_operations import DataDescription
 from term_operations import process
-from term_operations import normalize
-from term_operations import stem
+from term_operations import process_query
 from trie import Trie
 import sys
 import gc
@@ -64,8 +63,8 @@ class InvertedIndex:
 
             if docID % 1000 == 0 and docID != 0:
                 print(str(docID), end='...')
-                break
                 # per limitare l'index a 20000 o 1000 elementi
+                #break
                 #if(docID % 20000 == 0):
                 #    break
 
@@ -135,7 +134,6 @@ class IRsystem:
                     # caso di parola normale
                     res = self._index._trie.search(norm_words[i])
                     norm_words[i] = res
-                    # if word not found
                     if not res:
                         return
                 i += 1
@@ -148,40 +146,50 @@ class IRsystem:
         while j < len(norm_words)-1:
             if not isinstance(norm_words[j], str) and not isinstance(norm_words[j+1], str):
                 norm_words[j] = norm_words[j].phrase(norm_words[j+1])
+                if not norm_words[j]:
+                    return
                 del norm_words[j+1]
             j += 1
 
         j = 0
-        #una volta risolte le phrase queries posso applicare gli operatori
+        # una volta risolte le phrase queries posso applicare gli operatori AND, OR, NOT
+        # sovrascrivo il primo elemento dell'operazione con il risultato e elimino gli altri,
+        # alla fine avrò un'unica posting list da cui andare a prendere i titoli dei film
         while len(norm_words) != 1:
             if not isinstance(norm_words[j], str) and norm_words[j+1] == "and" and not isinstance(norm_words[j+2], str):
+                # caso AND, devo avere Posting List, "and", Posting List
                 norm_words[j] = norm_words[j].intersection(norm_words[j+2])
+                if not norm_words[j]:
+                    return
                 del norm_words[j + 1]
                 del norm_words[j + 1]
 
             elif not isinstance(norm_words[j], str) and norm_words[j+1] == "or" and not isinstance(norm_words[j+2], str):
                 norm_words[j] = norm_words[j].union(norm_words[j+2])
+                if not norm_words[j]:
+                    return
                 del norm_words[j + 1]
                 del norm_words[j + 1]
 
             elif not isinstance(norm_words[j], str) and norm_words[j+1] == "and" and norm_words[j+2] == "not" and not isinstance(norm_words[j+3], str):
                 norm_words[j] = norm_words[j].not_query(norm_words[j+3])
+                if not norm_words[j]:
+                    return
                 del norm_words[j + 1]
                 del norm_words[j + 1]
                 del norm_words[j + 1]
 
             elif norm_words[j] == "not" and not isinstance(norm_words[j+1], str):
                 norm_words[j] = norm_words[j+1].not_query_all_docs(self._index._number_of_docs)
+                if not norm_words[j]:
+                    return
                 del norm_words[j + 1]
 
         return norm_words[0].get_from_corpus(self._corpus)
 
 
 def query(ir, text):
-    #effettuo le operazioni di normalizzazione, tokenizzazione e stemming della query
-    normalized = normalize(text)
-    tokenized = normalized.split()
-    terms_query = stem(tokenized)
+    terms_query = process_query(text)
 
     answer = ir.answer_query_full(terms_query)
 
@@ -204,8 +212,8 @@ def initialization():
     tac = time.perf_counter()
     print(f"Index builded in {tac - tic:0.4f} seconds")
     #file = open('data/trie_index_20000.pickle', 'wb')
-    file = open("data/trie_index_1000.pickle", "wb")
-    #file = open("data/trie_index.pickle", "wb")
+    #file = open("data/trie_index_1000.pickle", "wb")
+    file = open("data/trie_index.pickle", "wb")
     pickle.dump(ir, file, protocol=-1)
     file.close()
     toc = time.perf_counter()
@@ -224,8 +232,8 @@ def operate():
             print("Retrieving index...")
             tic = time.perf_counter()
             #f = open('data/trie_index_20000.pickle', 'rb')
-            f = open('data/trie_index_1000.pickle', 'rb')
-            #f = open('data/trie_index.pickle', 'rb')
+            # f = open('data/trie_index_1000.pickle', 'rb')
+            f = open('data/trie_index.pickle', 'rb')
 
             ir = pickle.load(f)
             f.close()

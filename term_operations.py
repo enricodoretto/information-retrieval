@@ -4,6 +4,38 @@ from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 
 
+def normalize(text):
+    no_punctuation = re.sub(r'[^\w^\s^#-]', '', text)
+    downcase = no_punctuation.lower()
+    return downcase
+
+
+def stem(text):
+    ps = PorterStemmer()
+    stemmed = [ps.stem(word) for word in text if word != "and" or word != "or" or word != "not"]
+    return stemmed
+
+
+def process(desc):
+    stop_words = set(stopwords.words('english'))
+
+    normalized = normalize(desc)
+    tokenized = normalized.split()
+    no_stop_words = [w for w in tokenized if not w in stop_words]
+    processed = stem(no_stop_words)
+    return processed
+
+
+def process_query(query):
+    stop_words = set(stopwords.words('english'))
+
+    normalized = normalize(query)
+    tokenized = normalized.split()
+    no_stop_words = [w for w in tokenized if not w in stop_words and w != "and" or w != "or" or w != "not"]
+    stemmed = stem(no_stop_words)
+    return stemmed
+
+
 class ImpossibleMergeError(Exception):
     pass
 
@@ -31,37 +63,6 @@ class Term:
 
     def __repr__(self):
         return self.term + ": " + repr(self.posting_list)
-
-
-def normalize(text):
-    no_punctuation = re.sub(r'[^\w^\s^#-]', '', text)
-    downcase = no_punctuation.lower()
-    return downcase
-
-
-def stem(text):
-    ps = PorterStemmer()
-    stemmed = [ps.stem(word) for word in text if word != "and" or word != "or" or word != "not"]
-    return stemmed
-
-
-def process(desc):
-    stop_words = set(stopwords.words('english'))
-
-    normalized = normalize(desc)
-    tokenized = normalized.split()
-    no_stop_words = [w for w in tokenized if not w in stop_words]
-    processed = stem(no_stop_words)
-    return processed
-
-
-# the remove of stop words
-def tokenize_query(query):
-    normalized = normalize(query)
-    tokenized = normalized.split()
-    # stemmed = [ps.stem(word) for word in tokenized]
-    stemmed = stem(tokenized)
-    return stemmed
 
 
 @total_ordering
@@ -102,17 +103,12 @@ class PostingList:
 
     @classmethod
     def from_docID(cls, docID, position):
-        """ A posting list can be constructed starting from
-        a single docID.
-        """
         plist = cls()
         plist._postings = [Posting(docID, position)]
         return plist
 
     @classmethod
     def from_posting_list(cls, postingList):
-        """ A posting list can also be constructed by using another
-        """
         plist = cls()
         plist._postings = postingList
         return plist
@@ -143,7 +139,6 @@ class PostingList:
         return PostingList.from_posting_list(intersection)
 
     def union(self, other):
-        # per la query
         union = []
         i = 0
         j = 0

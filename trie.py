@@ -48,13 +48,7 @@ class Trie:
         if node.last:
             return node.term.posting_list
 
-    def suggestions(self, node, word):
-        if node.last:
-            self.word_list.append(node.term.posting_list)
-
-        for a, n in node.children.items():
-            self.suggestions(n, word + a)
-
+    # scorro l'albero fino a trovare la wildcard
     def get_wildcard(self, key):
         self.word_list = []
 
@@ -75,19 +69,19 @@ class Trie:
         elif node.last and not node.children:
             return -1
 
-        self.suggestions(node, temp_word)
-
+        self.scan_wildcard_child(node, temp_word)
         return self.word_list
 
-    def suggestions_multiple_wildcard(self, node, word, init):
-        reg = re.compile(init)
-
-        if node.last and re.match(reg, word):
+    # una volta trovata la wildcard scorro i figli ricorsivamente e ritorno le posting list
+    def scan_wildcard_child(self, node, word):
+        if node.last:
             self.word_list.append(node.term.posting_list)
 
         for a, n in node.children.items():
-            self.suggestions_multiple_wildcard(n, word + a, init)
+            self.scan_wildcard_child(n, word + a)
 
+    # unica differenza dalla wildcard normale è che passo direttamente la regex della multiple
+    # e verifico direttamente se è il termine che soddisfa la wildcard semplice è da ritornare o no
     def get_multiple_wildcard(self, key, init):
         self.word_list = []
 
@@ -108,6 +102,14 @@ class Trie:
         elif node.last and not node.children:
             return -1
 
-        self.suggestions_multiple_wildcard(node, temp_word, init)
-
+        self.scan_multiple_wildcard_child(node, temp_word, init)
         return self.word_list
+
+    def scan_multiple_wildcard_child(self, node, word, init):
+        reg = re.compile(init)
+
+        if node.last and re.match(reg, word):
+            self.word_list.append(node.term.posting_list)
+
+        for a, n in node.children.items():
+            self.scan_multiple_wildcard_child(n, word + a, init)
