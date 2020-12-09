@@ -17,6 +17,7 @@ It consists in a Python implementation of a Boolean Information Retrieval System
 ## **Initialization**
 - Start the program
 - Press "i" to build the index the first time
+- The index will be a Trie data structure
 - The index will be automatically saved
 
 #### **Operation performed**
