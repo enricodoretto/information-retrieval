@@ -3,6 +3,8 @@ import csv
 import re
 import nltk
 from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
+
 import time
 
 
@@ -19,26 +21,36 @@ nltk.download('stopwords')
 
 #normalize e tokenize da sistemare con nltp
 def normalize(text):
-    """ A simple funzion to normalize a text.
-    It removes everything that is not a word, a space or an hyphen
-    and downcases all the text.
-    """
-    no_punctuation = re.sub(r'[^\w^\s^-]', '', text)
+    no_punctuation = re.sub(r'[^\w^\s^#-]', '', text)
     downcase = no_punctuation.lower()
     return downcase
 
 
-def tokenize(movie):
-    """ From a movie description returns a posting list of all
-    tokens present in the description.
-    """
-    stop_words = set(stopwords.words('english'))
-    text = normalize(movie.description)
-    tokenized = nltk.word_tokenize(text)
-    filtered_sentence = [w for w in tokenized if not w in stop_words]
+def stem(text):
+    ps = PorterStemmer()
+    stemmed = [ps.stem(word) for word in text if word != "and" or word != "or" or word != "not"]
+    return stemmed
 
-    #return list(text.split())
-    return filtered_sentence
+
+def process(desc):
+    stop_words = set(stopwords.words('english'))
+
+    normalized = normalize(desc)
+    tokenized = normalized.split()
+    no_stop_words = [w for w in tokenized if not w in stop_words]
+    processed = stem(no_stop_words)
+    return processed
+
+
+def process_query(query):
+    stop_words = set(stopwords.words('english'))
+
+    normalized = normalize(query)
+    tokenized = normalized.split()
+    no_stop_words = [w for w in tokenized if not w in stop_words and w != "and" or w != "or" or w != "not"]
+    stemmed = stem(no_stop_words)
+    return stemmed
+
 
 class ImpossibleMergeError(Exception):
     pass
@@ -209,29 +221,43 @@ class PostingList:
                 j += 1
         return PostingList.from_posting_list(not_term)
 
-    def phrase(self,other):
+    def phrase(self, other):
         phrase = []
-        i=0
-        j=0
-        while (i < len(self._postings) and j < len(other._postings)):
-            x=0
-            y=0
-            if (self._postings[i] == other._postings[j]):
-                #sono nello stesso documento, devo controllare se sono vicini
-                while (x < len(self._postings[i]._poslist) and y < len(other._postings[j]._poslist)):
-                    if(self._postings[i]._poslist[x] == other._postings[j]._poslist[y]-1):
+        i = 0
+        j = 0
+        while i < len(self._postings) and j < len(other._postings):
+            x = 0
+            y = 0
+            if self._postings[i] == other._postings[j]:
+                # sono nello stesso documento, devo controllare se sono vicini
+                while x < len(self._postings[i]._poslist) and y < len(other._postings[j]._poslist):
+                    if self._postings[i]._poslist[x] == other._postings[j]._poslist[y]-1:
                         phrase.append(other._postings[j])
+                        break
                     x += 1
                     y += 1
                 i += 1
                 j += 1
 
-            elif (self._postings[i] < other._postings[j]):
+            elif self._postings[i] < other._postings[j]:
                 i += 1
             else:
                 j += 1
         return PostingList.from_posting_list(phrase)
 
+    def not_query_all_docs(self, number_of_docs):
+        alldocs = []
+        docID = 1
+        while docID < number_of_docs:
+            alldocs.append(Posting(docID, 1))
+            docID += 1
+
+        i = 0
+        while i < len(self._postings):
+            alldocs.remove(self._postings[i])
+            i += 1
+
+        return PostingList.from_posting_list(alldocs)
 
     def get_from_corpus(self, corpus):
         return list(map(lambda x: x.get_from_corpus(corpus), self._postings))
@@ -268,7 +294,10 @@ class InvertedIndex:
         # Here we "cheat" by using python dictionaries
         intermediate_dict = {}
         for docID, document in enumerate(corpus):
-            tokens = tokenize(document)
+            stop_words = set(stopwords.words('english'))
+
+            tokens = process(document.description)
+
             for index, token in enumerate(tokens):
                 #creo il nuovo termine
                 token = token + "$"
@@ -288,6 +317,7 @@ class InvertedIndex:
             # To observe the progress of our indexing.
             if (docID % 1000 == 0 and docID != 0):
                 print(str(docID), end='...')
+
                 # enable break to limit indexing for testing
                 #if(docID % 20000 == 0):
                 #    break
@@ -379,53 +409,68 @@ class IRsystem:
         #print(index)
         return cls(corpus, index)
 
-    def answer_query_sc(self, words, connections):
-        '''da riabilitare'''
-        #norm_words = map(normalize, words)
-        norm_words = words
-        postings = []
+    def answer_query_full(self, query):
+        norm_words = query
+        i = 0
+        while i < len(norm_words):
 
-        for w in norm_words:
-            try:
-                res = self._index[w]
-            except KeyError:
-                #implementare il not found
-                print("{} not found. Did you mean {}?")
-                pass
-            postings.append(res)
-        #having all the postings now I have to compute and-or-not
-        plist = []
-        if(not connections):
-            #se non viene specificata una connection word viene ritornata l'and
-            plist = reduce(lambda x, y: x.intersection(y), postings)
-        else:
-            for conn in connections:
-                if(conn == "and"):
-                    plist = reduce(lambda x, y: x.intersection(y), postings)
-                elif(conn == "or"):
-                    plist = reduce(lambda x, y: x.union(y), postings)
-                else:
-                    pass
-                    '''sviluppare la not'''
-                    plist = reduce(lambda x, y: x.not_query(y), postings)
-        return plist.get_from_corpus(self._corpus)
+            # se non è un termine di connessione ottengo la posting list
+            if norm_words[i] != "and" and norm_words[i] != "or" and norm_words[i] != "not":
 
-    def answer_phrase_query(self, words):
-        #da riabilitare
-        #norm_words = map(normalize, words)
-        norm_words = words
-        postings = []
-        for w in norm_words:
-            try:
-                res = self._index[w]
-            except KeyError:
-                #implementare il not found
-                print("{} not found. Did you mean {}?")
-                pass
-            postings.append(res)
-        #having all the postings now I have to check if they are near
-        plist = reduce(lambda x, y: x.phrase(y), postings)
-        return plist.get_from_corpus(self._corpus)
+                res = self._index[norm_words[i]]
+                norm_words[i] = res
+                if not res:
+                    return
+                i += 1
+
+            else:
+                i += 1
+
+        j = 0
+        # dopo aver ottenuto le posting list risolvo prima di tutto le phrase queries
+        while j < len(norm_words)-1:
+            if not isinstance(norm_words[j], str) and not isinstance(norm_words[j+1], str):
+                norm_words[j] = norm_words[j].phrase(norm_words[j+1])
+                if not norm_words[j]:
+                    return
+                del norm_words[j+1]
+            j += 1
+
+        j = 0
+        # una volta risolte le phrase queries posso applicare gli operatori AND, OR, NOT
+        # sovrascrivo il primo elemento dell'operazione con il risultato e elimino gli altri,
+        # alla fine avrò un'unica posting list da cui andare a prendere i titoli dei film
+        while len(norm_words) != 1:
+            if not isinstance(norm_words[j], str) and norm_words[j+1] == "and" and not isinstance(norm_words[j+2], str):
+                # caso AND, devo avere Posting List, "and", Posting List
+                norm_words[j] = norm_words[j].intersection(norm_words[j+2])
+                if not norm_words[j]:
+                    return
+                del norm_words[j + 1]
+                del norm_words[j + 1]
+
+            elif not isinstance(norm_words[j], str) and norm_words[j+1] == "or" and not isinstance(norm_words[j+2], str):
+                norm_words[j] = norm_words[j].union(norm_words[j+2])
+                if not norm_words[j]:
+                    return
+                del norm_words[j + 1]
+                del norm_words[j + 1]
+
+            elif not isinstance(norm_words[j], str) and norm_words[j+1] == "and" and norm_words[j+2] == "not" and not isinstance(norm_words[j+3], str):
+                norm_words[j] = norm_words[j].not_query(norm_words[j+3])
+                if not norm_words[j]:
+                    return
+                del norm_words[j + 1]
+                del norm_words[j + 1]
+                del norm_words[j + 1]
+
+            elif norm_words[j] == "not" and not isinstance(norm_words[j+1], str):
+                norm_words[j] = norm_words[j+1].not_query_all_docs(self._index._N)
+                if not norm_words[j]:
+                    return
+                del norm_words[j + 1]
+
+        return norm_words[0].get_from_corpus(self._corpus)
 
 
 def read_data_descriptions():
@@ -450,25 +495,20 @@ def read_data_descriptions():
         return corpus
 
 def query(ir, text):
-    words = text.split()
-    connections = []
-    terms = []
+    terms_query = process_query(text)
 
-    #Divide terms to retrieve and connections such and, or, not
-    for word in words:
-        if (word == "and" or word == "or" or word == "not"):
-            connections.append(word)
-        else:
-            terms.append(word)
+    answer = ir.answer_query_full(terms_query)
 
-    #answer = ir.answer_phrase_query(terms)
-    answer = ir.answer_query_sc(terms,connections)
-    print(len(answer))
-    for doc in answer:
-        print(doc)
+    if not answer:
+        print("Nessuna corrispondenza trovata")
+    else:
+        for doc in answer:
+            print(doc)
+        print(len(answer))
 
-#lettura file, creazione e salvataggio indice
+# lettura file, creazione e salvataggio indice
 def initialization():
+    # disabilitazione garbage collector per migliorare le prestazioni
     gc.disable()
 
     tic = time.perf_counter()
@@ -476,7 +516,6 @@ def initialization():
     ir = IRsystem.from_corpus(corpus)
     tac = time.perf_counter()
     print(f"Index builded in {tac - tic:0.4f} seconds")
-
     file = open("data/dictionary.pickle", "wb")
     pickle.dump(ir, file, protocol=-1)
     file.close()
@@ -485,16 +524,35 @@ def initialization():
 
     gc.enable()
 
+
 def operate():
-    print("Retrieving index...")
-    ir = pickle.load(open("data/dictionary.pickle", "rb", -1))
-    print("Index retrieved!")
-    tic = time.perf_counter()
-    query(ir, "#a#t")
-    toc = time.perf_counter()
-    print(f"Query performed in {toc - tic:0.4f} seconds")
+    ir = IRsystem
+    while 1:
+        op = input("I per caricare l'indice, q per query: ")
+        if op == "i":
+
+            gc.disable()
+            print("Retrieving index...")
+            tic = time.perf_counter()
+            f = open('data/dictionary.pickle', 'rb')
+
+            ir = pickle.load(f)
+            f.close()
+            tac = time.perf_counter()
+            print(f"Index retrieved in {tac - tic:0.4f} seconds")
+            gc.enable()
+
+        elif op == "q":
+            que = input("Scrivi la query: ")
+            tac = time.perf_counter()
+            query(ir, que)
+            toc = time.perf_counter()
+            print(f"Query performed in {toc - tac:0.4f} seconds")
 
 
 if __name__ == "__main__":
-    #initialization()
-    operate()
+    op = input("I per inizializzare, q per query: ")
+    if op == "i":
+        initialization()
+    elif op == "q":
+        operate()
