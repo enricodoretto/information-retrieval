@@ -193,7 +193,7 @@ def query(ir, text):
     answer = ir.answer_query_full(terms_query)
 
     if not answer:
-        print("Nessuna corrispondenza trovata")
+        print("No matching found")
     else:
         for doc in answer:
             print(doc)
@@ -224,14 +224,12 @@ def initialization():
 def operate():
     ir = IRsystem
     while 1:
-        op = input("I per caricare l'indice, q per query: ")
+        op = input("Press 'i' to retrieve the index, 'q' to perform the query: ")
         if op == "i":
 
             gc.disable()
             print("Retrieving index...")
             tic = time.perf_counter()
-            #f = open('data/trie_index_20000.pickle', 'rb')
-            # f = open('data/trie_index_1000.pickle', 'rb')
             f = open('data/trie_index.pickle', 'rb')
 
             ir = pickle.load(f)
@@ -241,7 +239,7 @@ def operate():
             gc.enable()
 
         elif op == "q":
-            que = input("Scrivi la query: ")
+            que = input("Write the query: ")
             tac = time.perf_counter()
             query(ir, que)
             toc = time.perf_counter()
@@ -249,7 +247,7 @@ def operate():
 
 
 if __name__ == "__main__":
-    op = input("I per inizializzare, q per query: ")
+    op = input("Press 'i' to create a new index, 'q' to perform a query: ")
     if op == "i":
         initialization()
     elif op == "q":
