@@ -48,3 +48,11 @@ It consists in a Python implementation of a Boolean Information Retrieval System
 #### **All queries combined**
 - You can perform all kind of query together like _term1 and term2 term3 and not term4_ where single terms can be wilcards
 - Priority will always be given to phrase queries 
+
+## **Evaluation**
+#### **Test queries**
+- «christmas and New York»
+- «McCallister and christmas»
+- «space and not Nasa»
+- «car or motor# and gran# prix»
+
