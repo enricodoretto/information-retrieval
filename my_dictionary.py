@@ -317,7 +317,7 @@ class InvertedIndex:
             # To observe the progress of our indexing.
             if (docID % 1000 == 0 and docID != 0):
                 print(str(docID), end='...')
-
+                break
                 # enable break to limit indexing for testing
                 #if(docID % 20000 == 0):
                 #    break
