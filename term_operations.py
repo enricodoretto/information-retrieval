@@ -121,7 +121,7 @@ class PostingList:
         # the posting lists are supposed to be ordered increasingly
         i = 0
         last = self._postings[-1]
-        while (i < len(other._postings) and last == other._postings[i]):
+        while i < len(other._postings) and last == other._postings[i]:
             last._poslist.append(other._postings[i]._poslist[0])
             i += 1
         self._postings += other._postings[i:]
