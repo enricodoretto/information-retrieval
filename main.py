@@ -12,8 +12,7 @@ import sys
 import gc
 
 
-sys.setrecursionlimit(10000)  # necessario per salvare un indice grande con pickle
-nltk.download('punkt')
+sys.setrecursionlimit(10000)  # necessary to save a large file with pickle
 nltk.download('stopwords')
 
 
@@ -43,7 +42,7 @@ class InvertedIndex:
         self._trie = Trie
         self._number_of_docs = 0
 
-    # costruzione dell'indice partendo dal corpus
+    # building the index starting from the corpus
     @classmethod
     def from_corpus(cls, corpus):
         trie = Trie()
@@ -53,17 +52,17 @@ class InvertedIndex:
             number_of_docs += 1
             tokens = process(document.description)
             for index, token in enumerate(tokens):
-                # creo il termine da passare a ogni rotazione
+                # create the term to pass at every rotation of the word
                 term = Term(token, docID, index)
                 token = token + "$"
-                # devo ruotare la parola per fare la trailing wildcard
+                # rotate the word for the wildcard
                 for i in token:
                     trie.insert(token, term)
                     token = token[1:] + token[0]
 
             if docID % 1000 == 0 and docID != 0:
                 print(str(docID), end='...')
-                # per limitare l'index a 20000 o 1000 elementi
+                # enable this to limit the dimension of the index for testing
                 #if(docID % 20000 == 0):
                 #    break
 
@@ -84,112 +83,117 @@ class IRsystem:
         return cls(corpus, index)
 
     def answer_query_full(self, query):
-        norm_words = query
+        query_words = query
         i = 0
-        while i < len(norm_words):
+        while i < len(query_words):
 
-            # se non è un termine di connessione ottengo la posting list
-            if norm_words[i] != "and" and norm_words[i] != "or" and norm_words[i] != "not":
-                norm_words[i] = norm_words[i] + '$'
+            # if the word is not a connection retrieve the posting list
+            if query_words[i] != "and" and query_words[i] != "or" and query_words[i] != "not":
 
-                #controllo se è una wildcard
-                counter = norm_words[i].count('#')
+                # the idea is to replace the word in the query with its corresponding posting list
+                query_words[i] = query_words[i] + '$'
+
+                # check if it is a wildcard
+                counter = query_words[i].count('#')
                 if not counter == 0:
                     if counter == 1:
-                        # caso di wildcard semplice, basta ruotare e effettuare la ricerca
-                        while not norm_words[i].endswith("#"):
-                            norm_words[i] = norm_words[i][1:] + norm_words[i][0]
-                        norm_words[i] = norm_words[i][:-1]
+                        # if it's a simple wildcard rotate until # is at the end
+                        while not query_words[i].endswith("#"):
+                            query_words[i] = query_words[i][1:] + query_words[i][0]
+                        query_words[i] = query_words[i][:-1]
 
-                        singlewcard = self._index._trie.get_wildcard(norm_words[i])
+                        singlewcard = self._index._trie.get_wildcard(query_words[i])
                         if not singlewcard:
                             return
-                        # il risultato sarà una posting list formata dall'unione di tutte le posting list dei termini corrispondenti
-                        ressinglewcard = reduce(lambda x, y: x.union(y), singlewcard)
-                        norm_words[i] = ressinglewcard
+                        # the posting list of the wildcard will be the union of all the posting lists corresponding to that wildcard
+                        res_single_wildcardcard = reduce(lambda x, y: x.union(y), singlewcard)
+                        query_words[i] = res_single_wildcardcard
 
                     elif counter > 1:
                         # multiple wildcard
-                        # salvo la prima parte, la query andrà fatta solo sull'ultima parte della wildcard
-                        cards = norm_words[i].rsplit('#', 1)
+                        # keep only the last part of the wildcard and perform the query on that
+                        cards = query_words[i].rsplit('#', 1)
                         key1 = '#' + cards[1]
                         while not key1.endswith("#"):
                             key1 = key1[1:] + key1[0]
                         key = key1[:-1]
 
-                        # tolgo il dollaro alla prima wildcard e sostituisco gli # del resto della parola con i simboli per regex
+                        # generate the regex to check if a term corrisponding to the simple wcard corresponds also to the multiple wildcard
                         key1 = key1[:-1]
                         key1 = key1[:-1]
                         key2 = cards[0].replace("#", ".+")
                         pattern = key1 + "\$" + key2 + ".+"
-                        # faccio la query sulla wildcard finale e aggiungo alle posting list da ritornare solo se il termine matcha il pattern
                         multiplewcards = self._index._trie.get_multiple_wildcard(key, pattern)
                         if not multiplewcards:
                             return
-                        resmultiplewcards = reduce(lambda x, y: x.union(y), multiplewcards)
-                        norm_words[i] = resmultiplewcards
+                        res_multiple_wildcard = reduce(lambda x, y: x.union(y), multiplewcards)
+                        query_words[i] = res_multiple_wildcard
 
                 else:
-                    # caso di parola normale
-                    res = self._index._trie.search(norm_words[i])
-                    norm_words[i] = res
+                    # simple word not wildcard
+                    res = self._index._trie.search(query_words[i])
+                    query_words[i] = res
                     if not res:
                         return
                 i += 1
 
+            # it the word is a connection skip to the next one
             else:
                 i += 1
 
         j = 0
-        # dopo aver ottenuto le posting list risolvo prima di tutto le phrase queries
-        while j < len(norm_words)-1:
-            if not isinstance(norm_words[j], str) and not isinstance(norm_words[j+1], str):
-                norm_words[j] = norm_words[j].phrase(norm_words[j+1])
-                if not norm_words[j]:
+        # query_words now will be like: [Posting List, connection, Posting List, Posting List, connection, Posting List]
+        # the idea now is to resolve an operation replacing the first item of the operation with the result and delete
+        # the other items: if we have [Posting List, connection, Posting List] the result will be [Posting List], where
+        # the resulting Posting List is the result of the operation.
+        # We do this until the length of query_words is != 1 or an operation results null
+
+        # at first we answer phrase queries
+        while j < len(query_words)-1:
+            if not isinstance(query_words[j], str) and not isinstance(query_words[j+1], str):
+                query_words[j] = query_words[j].phrase(query_words[j+1])
+                if not query_words[j]:
                     return
-                del norm_words[j+1]
+                del query_words[j+1]
             j += 1
 
         j = 0
-        # una volta risolte le phrase queries posso applicare gli operatori AND, OR, NOT
-        # sovrascrivo il primo elemento dell'operazione con il risultato e elimino gli altri,
-        # alla fine avrò un'unica posting list da cui andare a prendere i titoli dei film
-        while len(norm_words) != 1:
-            if not isinstance(norm_words[j], str) and norm_words[j+1] == "and" and not isinstance(norm_words[j+2], str):
-                # caso AND, devo avere Posting List, "and", Posting List
-                norm_words[j] = norm_words[j].intersection(norm_words[j+2])
-                if not norm_words[j]:
+        # now we can resolve AND, OR, NOT, AND NOT queries
+        while len(query_words) != 1:
+            if not isinstance(query_words[j], str) and query_words[j+1] == "and" and not isinstance(query_words[j+2], str):
+                query_words[j] = query_words[j].intersection(query_words[j+2])
+                if not query_words[j]:
                     return
-                del norm_words[j + 1]
-                del norm_words[j + 1]
+                del query_words[j + 1]
+                del query_words[j + 1]
 
-            elif not isinstance(norm_words[j], str) and norm_words[j+1] == "or" and not isinstance(norm_words[j+2], str):
-                norm_words[j] = norm_words[j].union(norm_words[j+2])
-                if not norm_words[j]:
+            elif not isinstance(query_words[j], str) and query_words[j+1] == "or" and not isinstance(query_words[j+2], str):
+                query_words[j] = query_words[j].union(query_words[j+2])
+                if not query_words[j]:
                     return
-                del norm_words[j + 1]
-                del norm_words[j + 1]
+                del query_words[j + 1]
+                del query_words[j + 1]
 
-            elif not isinstance(norm_words[j], str) and norm_words[j+1] == "and" and norm_words[j+2] == "not" and not isinstance(norm_words[j+3], str):
-                norm_words[j] = norm_words[j].not_query(norm_words[j+3])
-                if not norm_words[j]:
+            elif not isinstance(query_words[j], str) and query_words[j+1] == "and" and query_words[j+2] == "not" and not isinstance(query_words[j+3], str):
+                query_words[j] = query_words[j].not_query(query_words[j+3])
+                if not query_words[j]:
                     return
-                del norm_words[j + 1]
-                del norm_words[j + 1]
-                del norm_words[j + 1]
+                del query_words[j + 1]
+                del query_words[j + 1]
+                del query_words[j + 1]
 
-            elif norm_words[j] == "not" and not isinstance(norm_words[j+1], str):
-                norm_words[j] = norm_words[j+1].not_query_all_docs(self._index._number_of_docs)
-                if not norm_words[j]:
+            elif query_words[j] == "not" and not isinstance(query_words[j+1], str):
+                query_words[j] = query_words[j+1].not_query_all_docs(self._index._number_of_docs)
+                if not query_words[j]:
                     return
-                del norm_words[j + 1]
+                del query_words[j + 1]
 
-        return norm_words[0].get_from_corpus(self._corpus)
+        # get the title of the movies in the resulting posting list
+        return query_words[0].get_from_corpus(self._corpus)
 
 
 def query(ir, text):
     terms_query = process_query(text)
-
     answer = ir.answer_query_full(terms_query)
 
     if not answer:
@@ -200,9 +204,8 @@ def query(ir, text):
         print(len(answer))
 
 
-# lettura file, creazione e salvataggio indice
 def initialization():
-    # disabilitazione garbage collector per migliorare le prestazioni
+    # disable the garbage collector for performance improvement
     gc.disable()
 
     tic = time.perf_counter()
@@ -210,8 +213,6 @@ def initialization():
     ir = IRsystem.from_corpus(corpus)
     tac = time.perf_counter()
     print(f"Index builded in {tac - tic:0.4f} seconds")
-    #file = open('data/trie_index_20000.pickle', 'wb')
-    #file = open("data/trie_index_1000.pickle", "wb")
     file = open("data/trie_index.pickle", "wb")
     pickle.dump(ir, file, protocol=-1)
     file.close()
@@ -224,7 +225,7 @@ def initialization():
 def operate():
     ir = IRsystem
     while 1:
-        op = input("Press 'i' to retrieve the index, 'q' to perform the query: ")
+        op = input("Press 'i' to retrieve the index, 'q' to perform the query, any other key to quit: ")
         if op == "i":
 
             gc.disable()
@@ -245,10 +246,15 @@ def operate():
             toc = time.perf_counter()
             print(f"Query performed in {toc - tac:0.4f} seconds")
 
+        else:
+            quit()
+
 
 if __name__ == "__main__":
-    op = input("Press 'i' to create a new index, 'q' to perform a query: ")
+    op = input("Press 'i' to create a new index, 'q' to perform a query, any other key to quit: ")
     if op == "i":
         initialization()
     elif op == "q":
         operate()
+    else:
+        quit()
