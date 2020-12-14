@@ -52,7 +52,7 @@ class InvertedIndex:
             number_of_docs += 1
             tokens = process(document.description)
             for index, token in enumerate(tokens):
-                # create the term to pass at every rotation of the word
+                # create the term at which each rotation of the word will point
                 term = Term(token, docID, index)
                 token = token + "$"
                 # rotate the word for the wildcard
