@@ -155,7 +155,7 @@ class IRsystem:
                 if not query_words[j]:
                     return
                 del query_words[j+1]
-            j += 1
+            else: j += 1
 
         j = 0
         # now we can resolve AND, OR, NOT, AND NOT queries

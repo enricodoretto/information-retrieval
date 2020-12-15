@@ -38,7 +38,11 @@ def process_query(query):
 
     normalized = normalize(query)
     tokenized = normalized.split()
-    no_stop_words = [w for w in tokenized if not w in stop_words and w != "and" or w != "or" or w != "not"]
+    no_stop_words = []
+    for w in tokenized:
+        if w == "and" or w == "or" or w == "not" or w not in stop_words:
+            no_stop_words.append(w)
+
     stemmed = stem(no_stop_words)
     return stemmed
 
